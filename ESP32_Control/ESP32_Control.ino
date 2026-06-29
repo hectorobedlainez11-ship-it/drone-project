@@ -96,8 +96,11 @@ void loop() {
   server.handleClient();
 
   if (newData) {
-    char buf[48];
-    snprintf(buf, sizeof(buf), "THR:%d,PIT:%d,ROL:%d,YAW:%d\n", thr, pit, rol, yaw);
+    char buf[64];
+    uint8_t ck = 0;
+    int len = snprintf(buf, sizeof(buf), "THR:%d,PIT:%d,ROL:%d,YAW:%d,", thr, pit, rol, yaw);
+    for (char *p = buf; *p; p++) ck ^= *p;
+    snprintf(buf + len, sizeof(buf) - len, "CK:%02X\n", ck);
     Serial2.print(buf);
     newData = false;
   }
