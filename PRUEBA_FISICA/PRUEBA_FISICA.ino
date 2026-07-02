@@ -79,11 +79,13 @@ void loop() {
     while (Serial.available() > 0 && len < 31) {
       char c = Serial.read();
       if (c == '\n') break;
+      if (c == '\r') continue;
       buf[len++] = c;
     }
     buf[len] = '\0';
 
-    if (strncmp(buf, "THR ", 4) == 0) {
+    if (len == 0) { /* empty line, ignore */ }
+    else if (strncmp(buf, "THR ", 4) == 0) {
       unsigned long v = constrain(atol(buf + 4), 1000, 2000);
       ESC1_us = v; ESC2_us = v; ESC3_us = v; ESC4_us = v;
       Serial.print(F("THR ")); Serial.println(v);
