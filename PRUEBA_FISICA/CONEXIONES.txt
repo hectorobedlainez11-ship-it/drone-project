@@ -15,7 +15,7 @@ ARDUINO UNO (se alimenta por USB):
 USO:
   1. Conecta los LEDs (todos con resistor ~220ohm a GND)
   2. Conecta el Arduino por USB y sube el codigo
-  3. Abre el Serial Monitor (115200 baud)
+  3. Abre el Serial Monitor (57600 baud)
   4. Escribe comandos:
 
   THR 1500   -> Todos los LEDs al 50% (~1500us pulse)
