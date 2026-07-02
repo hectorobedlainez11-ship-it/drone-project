@@ -4,7 +4,7 @@
    https://arduproject.es/
 */
 
-#define usCiclo 6000
+#define usCiclo 20000
 
 #define pin_motor1 3
 #define pin_motor2 5
@@ -67,7 +67,7 @@ volatile bool pwm_active = false;
 
 void setup() {
   Wire.begin();
-  Serial.begin(115200);
+  Serial.begin(57600);
 
   pinMode(pin_LED_rojo1, OUTPUT);
   pinMode(pin_LED_rojo2, OUTPUT);

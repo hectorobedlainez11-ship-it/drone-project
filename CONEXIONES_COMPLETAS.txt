@@ -1,0 +1,81 @@
+DIAGRAMA DE CONEXIONES - DRON COMPLETO
+========================================
+
+ARDUINO UNO (Flight Controller - SOFTWARE_PRINCIPAL.ino)
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+  D0(RX)  <--- UART TX  ---  ESP32-CAM (GPIO1)
+  D1(TX)  ---[1k]--+--[2k]---  ESP32-CAM RX (GPIO3)
+                    |          (divisor 5V->3.3V)
+                   GND
+
+  D3      ---[senal]---  ESC1 --- M1 (FR, CW)
+  D5      ---[senal]---  ESC2 --- M2 (RL, CW)
+  D6      ---[senal]---  ESC3 --- M3 (FL, CCW)
+  D9      ---[senal]---  ESC4 --- M4 (RR, CCW)
+
+  D10     ---[220ohm]--- LED_ROJO1 (status)
+  D13     ---[220ohm]--- LED_ROJO2 (heartbeat)
+
+  A0      ---[divisor R1/R2=2.95]--- BATERIA 3S 11.1V (+)
+  A4(SDA) --- I2C SDA --------------- MPU6500 SDA
+  A5(SCL) --- I2C SCL --------------- MPU6500 SCL
+
+  5V      <--- BEC 5V (de 1 solo ESC, cable rojo)
+  GND     --- GND comun (Arduino, ESCs, MPU6500, ESP32)
+
+
+ESP32-CAM (WiFi + Camara + RC - ESP32_Control.ino)
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+  GPIO1 (TX)  --- UART --- Arduino D0(RX)
+  GPIO3 (RX)  --- UART --- Arduino D1(TX) via divisor 1k+2k
+
+  VCC  <--- 5V (desde Arduino o desde BEC directo)
+  GND  --- GND comun
+  + Cap 100uF + 0.1uF entre VCC y GND (desacoplo)
+
+
+MPU6500 (Sensor IMU)
+~~~~~~~~~~~~~~~~~~~~
+
+  VCC  --- 5V (Arduino o 3.3V segun modulo)
+  GND  --- GND
+  SDA  --- A4 (Arduino)
+  SCL  --- A5 (Arduino)
+
+
+ESCs (4x - Solo 1 con BEC activo)
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+  ESC1:  Senal= D3,    VCC(rojo)= solo 1 conectado,  GND=comun
+  ESC2:  Senal= D5,    VCC(rojo)= DESCONECTADO,       GND=comun
+  ESC3:  Senal= D6,    VCC(rojo)= DESCONECTADO,       GND=comun
+  ESC4:  Senal= D9,    VCC(rojo)= DESCONECTADO,       GND=comun
+
+
+BATERIA 3S LiPo (11.1V nominal, 12.6V max)
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+  Positivo (+) --- R1 100k ---+--- R2 33k --- GND
+                               |
+                              A0 (Arduino)
+
+LEEYENDA DE PINES (Arduino UNO)
+================================
+  PIN       NOMBRE EN CODIGO        CONECTA A               NOTAS
+  ---       -----------------        ----------               -----
+  D0        (RX usado como RX)       ESP32-CAM TX (GPIO1)    UART, entrada
+  D1        (TX usado como TX)       ESP32-CAM RX (GPIO3)    UART, salida 5V
+                                    \xbf via divisor 1k+2k    (baja a 3.3V)
+  D3        pin_motor1               ESC1 / M1 (FR, CW)      PWM, salida
+  D5        pin_motor2               ESC2 / M2 (RL, CW)      PWM, salida
+  D6        pin_motor3               ESC3 / M3 (FL, CCW)     PWM, salida
+  D9        pin_motor4               ESC4 / M4 (RR, CCW)     PWM, salida
+  D10       pin_LED_rojo1            LED status (armado)     salida digital
+  D13       pin_LED_rojo2            LED heartbeat           salida digital
+  A0        (lectura ADC)            divisor bateria         entrada analogica
+  A4        (I2C SDA)                MPU6500 SDA             I2C
+  A5        (I2C SCL)                MPU6500 SCL             I2C
+  5V        (VCC)                    BEC 5V (1 ESC)          alimentacion
+  GND       (GND)                    comun todas las placas  tierra

@@ -1,580 +1,368 @@
-import os
-import sys
-os.environ['PATH'] = r'C:\Program Files\MySQL\MySQL Workbench 8.0 CE' + os.pathsep + os.environ.get('PATH', '')
+# Diagrama de conexiones fisicas - DRONE DESDE CERO v2
+# Solo muestra pines realmente usados, con layout correcto
 
-import svgwrite
-import cairosvg
+import os, svgwrite
+
+# Intentar importar cairosvg para convertir a PNG
+HAS_CAIRO = False
+try:
+    import cairocffi
+    import cairosvg
+    HAS_CAIRO = True
+except (ImportError, OSError):
+    HAS_CAIRO = False
 
 W, H = 1600, 1050
-OUTPUT_SVG = os.path.join(os.path.dirname(__file__), "diagrama_circuito.svg")
-OUTPUT_PNG = os.path.join(os.path.dirname(__file__), "diagrama_circuito.png")
+OUT = os.path.join(os.path.dirname(__file__), "diagrama_circuito")
+dwg = svgwrite.Drawing(OUT+".svg", size=(f"{W}px", f"{H}px"))
 
-# Color palette
-POWER = '#DC143C'
-GND = '#333333'
-PWM = '#1E6EB8'
-I2C = '#228B22'
-UART = '#E67E22'
-LED_SIG = '#8E44AD'
-TEXT = '#1A1A1A'
-BOX_BORDER = '#2C3E50'
+C_PWR = "#DC143C"
+C_GND = "#333"
+C_PWM = "#1E6EB8"
+C_I2C = "#228B22"
+C_UART = "#E67E22"
+C_LED = "#8E44AD"
 
-FILL_ESP = '#FFF8E1'
-FILL_MPU = '#E8F5E9'
-FILL_ARDUINO = '#E3F2FD'
-FILL_BAT = '#FFEBEE'
-FILL_LED = '#FFFDE7'
-FILL_ESC = '#E0F7FA'
-FILL_CLUSTER = '#F0F4F8'
+dwg.add(dwg.rect((0,0),(W,H),fill="#FFF"))
+dwg.add(dwg.rect((10,10),(W-20,H-20),fill="none",stroke="#2C3E50",stroke_width=1.5,rx=4))
+dwg.add(dwg.text("DRONE DESDE CERO v2 — DIAGRAMA DE CONEXIONES",
+                 (W//2,40),text_anchor="middle",font_size=24,
+                 font_weight="bold",fill="#1A1A1A",
+                 font_family="Segoe UI, Arial, sans-serif"))
 
-dwg = svgwrite.Drawing(OUTPUT_SVG, size=(f'{W}px', f'{H}px'))
+def txt(x,y,s,a="middle",c="#1A1A1A",sz=12,b=True):
+    dwg.add(dwg.text(s,(x,y),text_anchor=a,font_size=sz,
+                     font_weight="bold" if b else "normal",
+                     fill=c,font_family="Segoe UI, Arial, sans-serif"))
 
-# ── Helpers ──────────────────────────────────────────────────────
+def ruta(pts,color,w=2,dash=False):
+    a={"fill":"none","stroke":color,"stroke_width":w}
+    if dash: a["stroke_dasharray"]="6,3"
+    dwg.add(dwg.path("M "+" L ".join(f"{px},{py}" for px,py in pts),**a))
 
-def box(x, y, w, h, label, fill='#FFFFFF', sub=None, big=False):
-    dwg.add(dwg.rect(insert=(x, y), size=(w, h),
-                     fill=fill, stroke=BOX_BORDER, stroke_width=2, rx=6, ry=6))
-    fs = 20 if big else 16
-    dwg.add(dwg.text(label, insert=(x + w//2, y + 28),
-                     text_anchor='middle', font_size=fs, font_weight='bold', fill=TEXT,
-                     font_family='Segoe UI, Arial, sans-serif'))
-    if sub:
-        dwg.add(dwg.text(sub, insert=(x + w//2, y + 48),
-                         text_anchor='middle', font_size=13, fill='#555',
-                         font_family='Segoe UI, Arial, sans-serif'))
+def dot(x,y,c="#2C3E50"):
+    dwg.add(dwg.circle((x,y),3,fill=c))
 
-def pin_label(x, y, text, anchor='start', color=TEXT):
-    dx = -4 if anchor == 'end' else 4
-    dwg.add(dwg.text(text, insert=(x + dx, y + 4),
-                     text_anchor=anchor, font_size=10, fill=color, font_weight='bold',
-                     font_family='Segoe UI, Arial, sans-serif'))
+def tierra(x,y):
+    for i,dy in enumerate([0,5,10]):
+        dwg.add(dwg.line((x-8+i*4,y+dy),(x+8-i*4,y+dy),stroke=C_GND,stroke_width=2))
 
-def route(points, color, width=2, dash=False):
-    attrs = {'fill': 'none', 'stroke': color, 'stroke_width': width}
-    if dash:
-        attrs['stroke_dasharray'] = '6,3'
-    d = 'M ' + ' L '.join(f'{px},{py}' for px, py in points)
-    dwg.add(dwg.path(d=d, **attrs))
+def resistencia(x,y):
+    pts=[(x-12+(24*i)//6,y+(6 if i%2==0 else -6)) for i in range(7)]
+    dwg.add(dwg.path("M "+" L ".join(f"{px},{py}" for px,py in pts),fill="none",stroke="#444",stroke_width=2))
 
-def dot(x, y, color=BOX_BORDER):
-    dwg.add(dwg.circle(center=(x, y), r=3, fill=color))
+def condensador(x,y,rotado=False):
+    if rotado:
+        dwg.add(dwg.line((x-6,y-10),(x-6,y+10),stroke="#444",stroke_width=2))
+        dwg.add(dwg.line((x+6,y-10),(x+6,y+10),stroke="#444",stroke_width=2))
+        dwg.add(dwg.line((x-6,y-6),(x+6,y-6),stroke="#444",stroke_width=2))
+        dwg.add(dwg.line((x-6,y+6),(x+6,y+6),stroke="#444",stroke_width=2))
+    else:
+        dwg.add(dwg.line((x-10,y-6),(x+10,y-6),stroke="#444",stroke_width=2))
+        dwg.add(dwg.line((x-10,y+6),(x+10,y+6),stroke="#444",stroke_width=2))
+        dwg.add(dwg.line((x-6,y-6),(x-6,y+6),stroke="#444",stroke_width=2))
+        dwg.add(dwg.line((x+6,y-6),(x+6,y+6),stroke="#444",stroke_width=2))
 
-def wire_label(x, y, text, color=TEXT, anchor='start'):
-    dwg.add(dwg.text(text, insert=(x, y), text_anchor=anchor,
-                     font_size=10, font_weight='bold', fill=color,
-                     font_family='Segoe UI, Arial, sans-serif'))
+def led(x,y):
+    dwg.add(dwg.polygon([(x-8,y-4),(x-8,y+4),(x+8,y)],fill="#E74C3C",stroke="#444",stroke_width=1.5))
+    dwg.add(dwg.line((x+6,y-4),(x+6,y+4),stroke="#444",stroke_width=2))
 
-def gnd_symbol(x, y):
-    dwg.add(dwg.line(start=(x-10, y), end=(x+10, y), stroke=GND, stroke_width=2))
-    dwg.add(dwg.line(start=(x-6, y+5), end=(x+6, y+5), stroke=GND, stroke_width=2))
-    dwg.add(dwg.line(start=(x-2, y+10), end=(x+2, y+10), stroke=GND, stroke_width=2))
-
-def resistor(x, y, w=24, h=10):
-    pts = []
-    segs = 6
-    for i in range(segs + 1):
-        px = x - w//2 + (w * i) // segs
-        py = y + (h if i % 2 == 0 else -h)
-        pts.append((px, py))
-    d = 'M ' + ' L '.join(f'{px},{py}' for px, py in pts)
-    dwg.add(dwg.path(d=d, fill='none', stroke='#444', stroke_width=2))
-
-def led_symbol(x, y, sz=10, color='#E74C3C'):
-    dwg.add(dwg.polygon([(x-sz, y-sz//2), (x-sz, y+sz//2), (x+sz, y)],
-                        fill=color, stroke='#444', stroke_width=1.5))
-    dwg.add(dwg.line(start=(x+sz-2, y-sz//2), end=(x+sz-2, y+sz//2),
-                     stroke='#444', stroke_width=2.5))
-    dwg.add(dwg.line(start=(x+sz+4, y-sz), end=(x+sz+10, y-sz-4),
-                     stroke='#444', stroke_width=1.5))
-    dwg.add(dwg.line(start=(x+sz+5, y-4), end=(x+sz+12, y-6),
-                     stroke='#444', stroke_width=1.5))
-    dwg.add(dwg.polygon([(x+sz+10, y-sz-4), (x+sz+7, y-sz-7), (x+sz+13, y-sz-6)],
-                        fill='#444'))
-    dwg.add(dwg.polygon([(x+sz+12, y-6), (x+sz+9, y-9), (x+sz+15, y-8)],
-                        fill='#444'))
-
-def battery_symbol(x, y):
-    dwg.add(dwg.line(start=(x-12, y-14), end=(x-12, y+14), stroke='#444', stroke_width=5))
-    dwg.add(dwg.line(start=(x+12, y-10), end=(x+12, y+10), stroke='#444', stroke_width=2.5))
-    dwg.add(dwg.text('+', insert=(x-20, y+5), font_size=12, fill=POWER,
-                     font_family='Segoe UI, Arial, sans-serif'))
-    dwg.add(dwg.text('−', insert=(x+16, y+5), font_size=14, fill=GND,
-                     font_family='Segoe UI, Arial, sans-serif'))
-
-def motor_symbol(x, y, label):
-    dwg.add(dwg.circle(center=(x, y), r=16, fill='#F5F5F5', stroke='#444', stroke_width=2))
-    dwg.add(dwg.text(label, insert=(x, y+4), text_anchor='middle',
-                     font_size=10, font_weight='bold', fill=TEXT,
-                     font_family='Segoe UI, Arial, sans-serif'))
-    for angle in [0, 120, 240]:
-        import math
-        rad = math.radians(angle)
-        dx = 10 * math.cos(rad)
-        dy = 10 * math.sin(rad)
-        dwg.add(dwg.line(start=(x, y), end=(x+dx, y+dy), stroke='#444', stroke_width=1.5))
-
+def motor(x,y,lab):
+    dwg.add(dwg.circle((x,y),14,fill="#F5F5F5",stroke="#444",stroke_width=2))
+    txt(x,y+4,lab,"middle","#1A1A1A",10,True)
 
 # ══════════════════════════════════════════════════════════════════
-#  1. BACKGROUND + BORDER
+#  ARDUINO UNO - SOLO PINES USADOS
+#  Tamaño: 500x500, empieza en (300, 80)
 # ══════════════════════════════════════════════════════════════════
-dwg.add(dwg.rect(insert=(0, 0), size=(W, H), fill='#FFFFFF'))
-dwg.add(dwg.rect(insert=(10, 10), size=(W-20, H-20),
-                 fill='none', stroke=BOX_BORDER, stroke_width=1.5, rx=4, ry=4))
+AX, AY, AW, AH = 300, 80, 500, 500
+dwg.add(dwg.rect((AX,AY),(AW,AH),fill="#E3F2FD",stroke="#2C3E50",stroke_width=2,rx=6))
+txt(AX+AW//2,AY+25,"ARDUINO UNO","middle","#1A1A1A",20,True)
+txt(AX+AW//2,AY+45,"(Flight Controller)","middle","#555",13)
 
-# ══════════════════════════════════════════════════════════════════
-#  2. TITLE
-# ══════════════════════════════════════════════════════════════════
-dwg.add(dwg.text('DRONE DESDE CERO v2 — DIAGRAMA DE CIRCUITO',
-                 insert=(W//2, 45), text_anchor='middle',
-                 font_size=26, font_weight='bold', fill=TEXT,
-                 font_family='Segoe UI, Arial, sans-serif'))
+# Header izquierdo (digitales) - solo los usados, espaciados
+# Posiciones Y relativas a AY
+L = {
+    "D0(RX)":   60,   # 140
+    "D1(TX)":   100,  # 180
+    "D3→ESC1":  180,  # 260
+    "D5→ESC2":  240,  # 320
+    "D6→ESC3":  290,  # 370
+    "D9→ESC4":  360,  # 440
+    "D10→LED1": 410,  # 490
+    "D13→LED2": 460,  # 540
+}
+for pname, py in L.items():
+    ly = AY+py
+    dwg.add(dwg.line((AX,ly-8),(AX,ly+8),stroke="#2C3E50",stroke_width=1.5))
+    dot(AX,ly)
+    txt(AX-6,ly+4,pname,"end","#1A1A1A",9,False)
 
-# ══════════════════════════════════════════════════════════════════
-#  3. COMPONENT BOXES
-# ══════════════════════════════════════════════════════════════════
-
-# -- ESP32-CAM (left, top) --
-x_esp, y_esp, w_esp, h_esp = 70, 80, 220, 150
-box(x_esp, y_esp, w_esp, h_esp, 'ESP32-CAM (AI-Thinker)', FILL_ESP, 'WiFi + Camera')
-
-# -- MPU6500 (right, top) --
-x_mpu, y_mpu, w_mpu, h_mpu = 1290, 80, 230, 150
-box(x_mpu, y_mpu, w_mpu, h_mpu, 'MPU6500', FILL_MPU, '6-DOF IMU (I2C)')
-
-# -- Arduino UNO (center) --
-x_ard, y_ard, w_ard, h_ard = 370, 340, 760, 240
-box(x_ard, y_ard, w_ard, h_ard, 'ARDUINO UNO', FILL_ARDUINO, 'Flight Controller', big=True)
-
-# -- Battery + Divider (bottom-left) --
-x_bat, y_bat, w_bat, h_bat = 70, 680, 250, 220
-box(x_bat, y_bat, w_bat, h_bat, 'BATERÍA 3S LiPo', FILL_BAT, '11.1V + Divisor de Voltaje')
-
-# -- LEDs (bottom-center) --
-x_led, y_led, w_led, h_led = 500, 710, 240, 190
-box(x_led, y_led, w_led, h_led, 'LEDs Indicadores', FILL_LED, 'Estado (armado/error)')
-
-# -- ESC/Motor cluster (bottom-right) --
-x_esc_cl, y_esc_cl, w_esc_cl, h_esc_cl = 900, 690, 640, 240
-dwg.add(dwg.rect(insert=(x_esc_cl, y_esc_cl), size=(w_esc_cl, h_esc_cl),
-                 fill=FILL_CLUSTER, stroke='#5D6D7E', stroke_width=1.5, rx=8, ry=8, stroke_dasharray='6,3'))
-dwg.add(dwg.text('ESCs + MOTORES (Configuración X)',
-                 insert=(x_esc_cl + w_esc_cl//2, y_esc_cl + 22),
-                 text_anchor='middle', font_size=14, font_weight='bold', fill='#5D6D7E',
-                 font_family='Segoe UI, Arial, sans-serif'))
-
-# Individual ESC boxes in 2x2 grid
-esc_w, esc_h = 240, 75
-gap_x, gap_y = 30, 20
-x_esc1 = x_esc_cl + 340
-x_esc3 = x_esc_cl + 50
-y_esc1 = y_esc_cl + 35
-y_esc2 = y_esc_cl + 35 + esc_h + gap_y
-
-# ESC1 (FR, CW)
-x1, y1 = x_esc1, y_esc1
-dwg.add(dwg.rect(insert=(x1, y1), size=(esc_w, esc_h),
-                 fill=FILL_ESC, stroke=BOX_BORDER, stroke_width=1.5, rx=4, ry=4))
-dwg.add(dwg.text('ESC1', insert=(x1+50, y1+28), text_anchor='middle', font_size=13, font_weight='bold', fill=TEXT,
-                 font_family='Segoe UI, Arial, sans-serif'))
-dwg.add(dwg.text('FR • CW', insert=(x1+50, y1+50), text_anchor='middle', font_size=11, fill='#555',
-                 font_family='Segoe UI, Arial, sans-serif'))
-motor_symbol(x1+190, y1+esc_h//2, 'M1')
-
-# ESC3 (FL, CCW)
-x3, y3 = x_esc3, y_esc1
-dwg.add(dwg.rect(insert=(x3, y3), size=(esc_w, esc_h),
-                 fill=FILL_ESC, stroke=BOX_BORDER, stroke_width=1.5, rx=4, ry=4))
-dwg.add(dwg.text('ESC3', insert=(x3+50, y3+28), text_anchor='middle', font_size=13, font_weight='bold', fill=TEXT,
-                 font_family='Segoe UI, Arial, sans-serif'))
-dwg.add(dwg.text('FL • CCW', insert=(x3+50, y3+50), text_anchor='middle', font_size=11, fill='#555',
-                 font_family='Segoe UI, Arial, sans-serif'))
-motor_symbol(x3+190, y3+esc_h//2, 'M3')
-
-# ESC2 (RL, CW)
-x2, y2 = x_esc3, y_esc2
-dwg.add(dwg.rect(insert=(x2, y2), size=(esc_w, esc_h),
-                 fill=FILL_ESC, stroke=BOX_BORDER, stroke_width=1.5, rx=4, ry=4))
-dwg.add(dwg.text('ESC2', insert=(x2+50, y2+28), text_anchor='middle', font_size=13, font_weight='bold', fill=TEXT,
-                 font_family='Segoe UI, Arial, sans-serif'))
-dwg.add(dwg.text('RL • CW', insert=(x2+50, y2+50), text_anchor='middle', font_size=11, fill='#555',
-                 font_family='Segoe UI, Arial, sans-serif'))
-motor_symbol(x2+190, y2+esc_h//2, 'M2')
-
-# ESC4 (RR, CCW)
-x4, y4 = x_esc1, y_esc2
-dwg.add(dwg.rect(insert=(x4, y4), size=(esc_w, esc_h),
-                 fill=FILL_ESC, stroke=BOX_BORDER, stroke_width=1.5, rx=4, ry=4))
-dwg.add(dwg.text('ESC4', insert=(x4+50, y4+28), text_anchor='middle', font_size=13, font_weight='bold', fill=TEXT,
-                 font_family='Segoe UI, Arial, sans-serif'))
-dwg.add(dwg.text('RR • CCW', insert=(x4+50, y4+50), text_anchor='middle', font_size=11, fill='#555',
-                 font_family='Segoe UI, Arial, sans-serif'))
-motor_symbol(x4+190, y4+esc_h//2, 'M4')
-
+# Header derecho (analog+power) - solo los usados
+R = {
+    "A0(Bat)":   70,   # 150
+    "A4(SDA)":   160,  # 240
+    "A5(SCL)":   200,  # 280
+    "5V(BEC)":   280,  # 360
+    "GND":       350,  # 430
+}
+for pname, py in R.items():
+    ly = AY+py
+    dwg.add(dwg.line((AX+AW,ly-8),(AX+AW,ly+8),stroke="#2C3E50",stroke_width=1.5))
+    dot(AX+AW,ly)
+    txt(AX+AW+6,ly+4,pname,"start","#1A1A1A",9,False)
 
 # ══════════════════════════════════════════════════════════════════
-#  4. INTERNAL COMPONENT DETAILS
+#  ESP32-CAM (izquierda)
 # ══════════════════════════════════════════════════════════════════
-
-# -- Battery internal --
-bat_cx, bat_cy = x_bat + w_bat//2, y_bat + 55
-battery_symbol(bat_cx, bat_cy)
-
-dwg.add(dwg.text('+11.1V', insert=(x_bat + 15, y_bat + 90), font_size=11, fill=POWER,
-                 font_family='Segoe UI, Arial, sans-serif'))
-
-# Voltage divider
-r1_x, r1_y = x_bat + 80, y_bat + 130
-r2_x, r2_y = x_bat + 150, y_bat + 185
-
-resistor(r1_x, r1_y, 30, 12)
-dwg.add(dwg.text('R1', insert=(r1_x-10, r1_y+20), font_size=10, fill=TEXT,
-                 font_family='Segoe UI, Arial, sans-serif'))
-
-resistor(r2_x, r2_y, 30, 12)
-dwg.add(dwg.text('R2', insert=(r2_x-10, r2_y+20), font_size=10, fill=TEXT,
-                 font_family='Segoe UI, Arial, sans-serif'))
-
-dwg.add(dwg.text('Ratio ~2.95:1', insert=(x_bat + w_bat//2, y_bat + 205),
-                 text_anchor='middle', font_size=10, fill='#888',
-                 font_family='Segoe UI, Arial, sans-serif'))
-
-# Battery internal connections
-route([(bat_cx-12, y_bat+50), (bat_cx-12, r1_y-12), (r1_x-15, r1_y-12), (r1_x-15, r1_y-12)], POWER)
-route([(bat_cx+12, y_bat+50), (bat_cx+12, y_bat+170), (x_bat+220, y_bat+170)], GND)
-route([(r1_x+15, r1_y), (x_bat+220, r1_y)], POWER)
-route([(r2_x-15, r2_y), (r1_x+15, r1_y)], POWER)
-route([(r2_x+15, r2_y), (x_bat+220, r2_y)], GND)
-
-# A0 output from divider
-a0_out_x = x_bat + w_bat
-a0_out_y = y_bat + 130
-dot(a0_out_x, a0_out_y, POWER)
-
-# -- LEDs internal --
-# LED1
-led1_in_x = x_led - 5
-led1_in_y = y_led + 55
-led1_r_x = x_led + 40
-led1_r_y = y_led + 55
-led1_sym_x = x_led + 90
-led1_sym_y = y_led + 55
-
-resistor(led1_r_x, led1_r_y, 24, 10)
-dwg.add(dwg.text('220Ω', insert=(led1_r_x, led1_r_y+20), text_anchor='middle', font_size=9, fill=TEXT,
-                 font_family='Segoe UI, Arial, sans-serif'))
-led_symbol(led1_sym_x, led1_sym_y)
-dwg.add(dwg.text('Rojo 1', insert=(led1_sym_x+5, led1_sym_y+25), font_size=10, fill=TEXT,
-                 font_family='Segoe UI, Arial, sans-serif'))
-dwg.add(dwg.text('Pin 10', insert=(led1_in_x-30, led1_in_y+4), font_size=9, fill=TEXT,
-                 font_family='Segoe UI, Arial, sans-serif'))
-route([(led1_in_x, led1_in_y), (led1_r_x-12, led1_r_y)], LED_SIG)
-route([(led1_r_x+12, led1_r_y), (led1_sym_x-10, led1_sym_y)], LED_SIG)
-# LED1 GND
-gnd_led1_x = x_led + 180
-gnd_led1_y = y_led + 55
-route([(led1_sym_x+8, led1_sym_y), (gnd_led1_x, gnd_led1_y)], GND)
-gnd_symbol(gnd_led1_x, gnd_led1_y)
-
-# LED2
-led2_in_x = x_led - 5
-led2_in_y = y_led + 120
-led2_r_x = x_led + 40
-led2_r_y = y_led + 120
-led2_sym_x = x_led + 90
-led2_sym_y = y_led + 120
-
-resistor(led2_r_x, led2_r_y, 24, 10)
-dwg.add(dwg.text('220Ω', insert=(led2_r_x, led2_r_y+20), text_anchor='middle', font_size=9, fill=TEXT,
-                 font_family='Segoe UI, Arial, sans-serif'))
-led_symbol(led2_sym_x, led2_sym_y)
-dwg.add(dwg.text('Rojo 2', insert=(led2_sym_x+5, led2_sym_y+25), font_size=10, fill=TEXT,
-                 font_family='Segoe UI, Arial, sans-serif'))
-dwg.add(dwg.text('Pin 13', insert=(led2_in_x-30, led2_in_y+4), font_size=9, fill=TEXT,
-                 font_family='Segoe UI, Arial, sans-serif'))
-route([(led2_in_x, led2_in_y), (led2_r_x-12, led2_r_y)], LED_SIG)
-route([(led2_r_x+12, led2_r_y), (led2_sym_x-10, led2_sym_y)], LED_SIG)
-gnd_led2_x = x_led + 180
-gnd_led2_y = y_led + 120
-route([(led2_sym_x+8, led2_sym_y), (gnd_led2_x, gnd_led2_y)], GND)
-gnd_symbol(gnd_led2_x, gnd_led2_y)
+EX, EY, EW, EH = 30, 120, 180, 130
+dwg.add(dwg.rect((EX,EY),(EW,EH),fill="#FFF8E1",stroke="#2C3E50",stroke_width=2,rx=6))
+txt(EX+EW//2,EY+22,"ESP32-CAM","middle","#1A1A1A",15,True)
+txt(EX+EW//2,EY+42,"WiFi + OV2640","middle","#555",11)
+# Pines ESP32 usados
+esp_tx = (EX+EW, AY+L["D0(RX)"])   # TX → D0, mismo Y
+esp_rx = (EX+EW, AY+L["D1(TX)"])   # RX ← D1
+dot(*esp_tx); dot(*esp_rx)
+txt(esp_tx[0]+4,esp_tx[1]+4,"TX(GPIO1)","start","#1A1A1A",9)
+txt(esp_rx[0]+4,esp_rx[1]+4,"RX(GPIO3)","start","#1A1A1A",9)
+# Power ESP32
+txt(EX+50,EY+EH+12,"+5V","middle",C_PWR,9)
+txt(EX+130,EY+EH+12,"GND","middle",C_GND,9)
+tierra(EX+130,EY+EH+22)
 
 # ══════════════════════════════════════════════════════════════════
-#  5. PIN LABELS ON COMPONENTS
+#  MPU6500 (derecha)
 # ══════════════════════════════════════════════════════════════════
-
-# ESP32-CAM pins (right edge)
-esp_rx_x = x_esp + w_esp
-esp_tx_y = y_esp + 45
-esp_rx_y = y_esp + 85
-pin_label(esp_rx_x, esp_tx_y, 'TX (GPIO1)', 'end')
-pin_label(esp_rx_x, esp_rx_y, 'RX (GPIO3)', 'end')
-pin_label(x_esp + 60, y_esp + h_esp, '5V', 'middle')
-pin_label(x_esp + 150, y_esp + h_esp, 'GND', 'middle')
-
-# MPU6500 pins (left edge)
-mpu_scl_y = y_mpu + 45
-mpu_sda_y = y_mpu + 85
-pin_label(x_mpu, mpu_scl_y, 'SCL', 'start')
-pin_label(x_mpu, mpu_sda_y, 'SDA', 'start')
-pin_label(x_mpu + 70, y_mpu + h_mpu, 'VCC', 'middle')
-pin_label(x_mpu + 150, y_mpu + h_mpu, 'GND', 'middle')
-
-# Arduino left pins
-ard_rx_y = y_ard + 50
-ard_tx_y = y_ard + 85
-ard_a0_y = y_ard + 130
-ard_5v_y = y_ard + 175
-ard_gnd_y = y_ard + 215
-pin_label(x_ard, ard_rx_y, 'RX (D0)', 'start')
-pin_label(x_ard, ard_tx_y, 'TX (D1)', 'start')
-pin_label(x_ard, ard_a0_y, 'A0', 'start')
-pin_label(x_ard, ard_5v_y, '5V', 'start')
-pin_label(x_ard, ard_gnd_y, 'GND', 'start')
-
-# Arduino bottom pins
-pins_bottom = [
-    (x_ard + 55, 'Pin 3'),
-    (x_ard + 125, 'Pin 5'),
-    (x_ard + 195, 'Pin 6'),
-    (x_ard + 265, 'Pin 9'),
-    (x_ard + 350, 'Pin 10'),
-    (x_ard + 430, 'Pin 13'),
-]
-for px, plabel in pins_bottom:
-    dot(px, y_ard + h_ard)
-    pin_label(px, y_ard + h_ard + 5, plabel, 'middle')
-
-# Arduino right pins
-ard_sda_y = y_ard + 65
-ard_scl_y = y_ard + 120
-pin_label(x_ard + w_ard, ard_sda_y, 'A4 (SDA)', 'end')
-pin_label(x_ard + w_ard, ard_scl_y, 'A5 (SCL)', 'end')
-
+MX, MY, MW, MH = 1200, 100, 200, 130
+dwg.add(dwg.rect((MX,MY),(MW,MH),fill="#E8F5E9",stroke="#2C3E50",stroke_width=2,rx=6))
+txt(MX+MW//2,MY+22,"MPU6500","middle","#1A1A1A",15,True)
+txt(MX+MW//2,MY+42,"6-DOF IMU (0x68)","middle","#555",11)
+# Pines MPU (lado izquierdo)
+mpu_sda = (MX, AY+R["A4(SDA)"])
+mpu_scl = (MX, AY+R["A5(SCL)"])
+dot(*mpu_sda); dot(*mpu_scl)
+txt(mpu_sda[0]-4,mpu_sda[1]+4,"SDA","end","#1A1A1A",9)
+txt(mpu_scl[0]-4,mpu_scl[1]+4,"SCL","end","#1A1A1A",9)
+# Power MPU
+txt(MX+60,MY+MH+10,"VCC","middle",C_PWR,9)
+txt(MX+140,MY+MH+10,"GND","middle",C_GND,9)
+tierra(MX+140,MY+MH+20)
 
 # ══════════════════════════════════════════════════════════════════
-#  6. WIRES (routes)
+#  ESCs + MOTORES (abajo, en configuracion X)
 # ══════════════════════════════════════════════════════════════════
+# Mapeo correcto: D3→ESC1, D5→ESC2, D6→ESC3, D9→ESC4
+# Posiciones: ESC1=FR, ESC2=RL, ESC3=FL, ESC4=RR
+ESC_Y = 680
+ew, eh = 200, 65
+gap = 25
+# Centrar los 4 ESCs
+x0 = (W - 2*ew - gap)//2 - 100
 
-# -- UART: ESP32 ↔ Arduino (Orange) --
-# ESP32 TX → Arduino RX
-tx_route = [
-    (x_esp + w_esp, esp_tx_y),   # ESP32 TX
-    (x_esp + w_esp + 30, esp_tx_y),
-    (x_esp + w_esp + 30, ard_rx_y),
-    (x_ard, ard_rx_y)            # Arduino RX
+esc_data = [
+    ("ESC1","FR(CW)", "M1", x0+ew+gap, ESC_Y, AY+L["D3→ESC1"]),
+    ("ESC2","RL(CW)", "M2", x0,        ESC_Y+eh+gap, AY+L["D5→ESC2"]),
+    ("ESC3","FL(CCW)","M3", x0,        ESC_Y, AY+L["D6→ESC3"]),
+    ("ESC4","RR(CCW)","M4", x0+ew+gap, ESC_Y+eh+gap, AY+L["D9→ESC4"]),
 ]
-route(tx_route, UART)
-wire_label(x_esp + w_esp + 5, esp_tx_y - 8, 'TX →', UART)
+for name, pos, mlab, ex, ey, py_ard in esc_data:
+    dwg.add(dwg.rect((ex,ey),(ew,eh),fill="#E0F7FA",stroke="#2C3E50",stroke_width=1.5,rx=4))
+    txt(ex+50,ey+20,name,"middle","#1A1A1A",12,True)
+    txt(ex+50,ey+43,pos,"middle","#555",10)
+    motor(ex+ew-25,ey+eh//2,mlab)
 
-# ESP32 RX → Arduino TX
-rx_route = [
-    (x_esp + w_esp, esp_rx_y),   # ESP32 RX
-    (x_esp + w_esp + 30, esp_rx_y),
-    (x_esp + w_esp + 30, ard_tx_y),
-    (x_ard, ard_tx_y)            # Arduino TX
-]
-route(rx_route, UART)
-wire_label(x_esp + w_esp + 5, esp_rx_y - 8, 'RX →', UART)
-
-# -- I2C: MPU6500 ↔ Arduino (Green) --
-# MPU6500 SCL → Arduino A5
-scl_route = [
-    (x_mpu, mpu_scl_y),
-    (x_mpu - 80, mpu_scl_y),
-    (x_mpu - 80, ard_scl_y),
-    (x_ard + w_ard, ard_scl_y)
-]
-route(scl_route, I2C)
-wire_label(x_mpu - 5, mpu_scl_y - 8, 'SCL', I2C, 'end')
-
-# MPU6500 SDA → Arduino A4
-sda_route = [
-    (x_mpu, mpu_sda_y),
-    (x_mpu - 80, mpu_sda_y),
-    (x_mpu - 80, ard_sda_y),
-    (x_ard + w_ard, ard_sda_y)
-]
-route(sda_route, I2C)
-wire_label(x_mpu - 5, mpu_sda_y - 8, 'SDA', I2C, 'end')
-
-# -- Battery A0 → Arduino A0 (Red) --
-bat_a0_route = [
-    (a0_out_x, a0_out_y),
-    (a0_out_x + 30, a0_out_y),
-    (a0_out_x + 30, ard_a0_y),
-    (x_ard, ard_a0_y)
-]
-route(bat_a0_route, POWER)
-wire_label(a0_out_x + 5, a0_out_y - 8, 'A0 →', POWER)
-
-# -- 5V from ESC BEC → Arduino 5V (Red) --
-# Pick up from ESC3 area
-bec_route = [
-    (x_esc3 + esc_w//2, y_esc1 + esc_h),
-    (x_esc3 + esc_w//2, y_esc1 + esc_h + 30),
-    (x_ard + 60, y_esc1 + esc_h + 30),
-    (x_ard + 60, ard_5v_y),
-    (x_ard, ard_5v_y)
-]
-route(bec_route, POWER)
-wire_label(x_ard + 5, ard_5v_y - 8, '5V BEC', POWER)
-
-# -- GND from ESC → Arduino GND (Black) --
-gnd_route = [
-    (x_esc3 + esc_w//2 - 40, y_esc1 + esc_h),
-    (x_esc3 + esc_w//2 - 40, y_esc1 + esc_h + 40),
-    (x_ard + 140, y_esc1 + esc_h + 40),
-    (x_ard + 140, ard_gnd_y),
-    (x_ard, ard_gnd_y)
-]
-route(gnd_route, GND)
-wire_label(x_ard + 5, ard_gnd_y - 8, 'GND', GND)
-
-# -- PWM: Arduino → ESCs (Blue) --
-# Pin 3 → ESC1 (FR, CW) — right column, top row
-pwm1 = [
-    (x_ard + 55, y_ard + h_ard),
-    (x_ard + 55, y_ard + h_ard + 35),
-    (x_esc1 + esc_w//2, y_ard + h_ard + 35),
-    (x_esc1 + esc_w//2, y_esc1)
-]
-route(pwm1, PWM)
-wire_label(x_ard + 55, y_ard + h_ard + 12, 'Pin 3 → ESC1', PWM, 'middle')
-
-# Pin 5 → ESC2 (RL, CW) — left column, bottom row
-pwm2 = [
-    (x_ard + 125, y_ard + h_ard),
-    (x_ard + 125, y_ard + h_ard + 50),
-    (x_esc3 + esc_w//2, y_ard + h_ard + 50),
-    (x_esc3 + esc_w//2, y_esc2)
-]
-route(pwm2, PWM)
-wire_label(x_ard + 125, y_ard + h_ard + 12, 'Pin 5 → ESC2', PWM, 'middle')
-
-# Pin 6 → ESC3 (FL, CCW) — left column, top row
-pwm3 = [
-    (x_ard + 195, y_ard + h_ard),
-    (x_ard + 195, y_ard + h_ard + 35),
-    (x_esc3 + esc_w//2, y_ard + h_ard + 35),
-    (x_esc3 + esc_w//2, y_esc1)
-]
-route(pwm3, PWM)
-wire_label(x_ard + 195, y_ard + h_ard + 12, 'Pin 6 → ESC3', PWM, 'middle')
-
-# Pin 9 → ESC4 (RR, CCW) — right column, bottom row
-pwm4 = [
-    (x_ard + 265, y_ard + h_ard),
-    (x_ard + 265, y_ard + h_ard + 50),
-    (x_esc1 + esc_w//2, y_ard + h_ard + 50),
-    (x_esc1 + esc_w//2, y_esc2)
-]
-route(pwm4, PWM)
-wire_label(x_ard + 265, y_ard + h_ard + 12, 'Pin 9 → ESC4', PWM, 'middle')
-
-# -- LED signals: Arduino → LEDs (Purple) --
-# Pin 10 → LED1
-led1_route = [
-    (x_ard + 350, y_ard + h_ard),
-    (x_ard + 350, y_ard + h_ard + 30),
-    (x_led - 5, y_ard + h_ard + 30),
-    (x_led - 5, led1_in_y)
-]
-route(led1_route, LED_SIG)
-wire_label(x_ard + 350, y_ard + h_ard + 12, 'Pin 10 → LED1', LED_SIG, 'middle')
-
-# Pin 13 → LED2
-led2_route = [
-    (x_ard + 430, y_ard + h_ard),
-    (x_ard + 430, y_ard + h_ard + 30),
-    (x_led - 5, y_ard + h_ard + 30),
-    (x_led - 5, led2_in_y)
-]
-route(led2_route, LED_SIG)
-wire_label(x_ard + 430, y_ard + h_ard + 12, 'Pin 13 → LED2', LED_SIG, 'middle')
-
-# -- GND for battery --
-bat_gnd_y = y_bat + 195
-route([(x_bat + w_bat - 30, bat_gnd_y), (x_bat + w_bat - 30, y_bat + h_bat + 20)], GND)
-gnd_symbol(x_bat + w_bat - 30, y_bat + h_bat + 20)
-
-# -- Common GND symbol for LEDs box --
-route([(x_led + w_led - 20, y_led + h_led), (x_led + w_led - 20, y_led + h_led + 15)], GND)
-gnd_symbol(x_led + w_led - 20, y_led + h_led + 15)
-
-# -- MPU6500 VCC to 5V --
-vcc_route = [
-    (x_mpu + 70, y_mpu + h_mpu),
-    (x_mpu + 70, y_mpu + h_mpu + 20),
-    (x_mpu + 70, 300),
-]
-route(vcc_route, POWER, dash=True)
-wire_label(x_mpu + 70, y_mpu + h_mpu + 25, 'a +5V', POWER, 'middle')
-
-# -- ESP32 5V --
-route([(x_esp + 60, y_esp + h_esp), (x_esp + 60, y_esp + h_esp + 15)], POWER)
-wire_label(x_esp + 60, y_esp + h_esp + 18, '+5V', POWER, 'middle')
-
-# -- ESP32 GND --
-route([(x_esp + 150, y_esp + h_esp), (x_esp + 150, y_esp + h_esp + 15)], GND)
-gnd_symbol(x_esp + 150, y_esp + h_esp + 15)
-
-# -- MPU6500 GND --
-route([(x_mpu + 150, y_mpu + h_mpu), (x_mpu + 150, y_mpu + h_mpu + 20)], GND)
-gnd_symbol(x_mpu + 150, y_mpu + h_mpu + 20)
-
-# -- Battery + to R1 --
-route([(bat_cx - 12, y_bat + 50), (r1_x - 15, r1_y - 12), (r1_x - 15, r1_y)], POWER)
-
-# -- Battery - to GND --
-route([(bat_cx + 12, y_bat + 50), (bat_cx + 12, y_bat + 170), (x_bat + w_bat - 30, y_bat + 170)], GND)
-
-# -- R1 to A0 out --
-route([(r1_x + 15, r1_y), (a0_out_x, a0_out_y)], POWER)
-dot(a0_out_x - 3, a0_out_y, POWER)
-
-# -- R1 to R2 junction --
-route([(r1_x + 15, r1_y), (r2_x - 15, r2_y)], POWER)
-
-# -- R2 to GND --
-route([(r2_x + 15, r2_y), (x_bat + w_bat - 30, r2_y), (x_bat + w_bat - 30, y_bat + 170)], GND)
-
+    # PWM wire: desde el pin en Arduino hasta el ESC
+    # Sale horizontal a izquierda, baja vertical, entra al ESC
+    mid_x = AX - 40
+    ruta([(AX,py_ard),(mid_x,py_ard),(mid_x,ey+eh//2),(ex,ey+eh//2)],C_PWM)
+    txt(mid_x,(py_ard+ey+eh//2)//2,f"{name}","middle",C_PWM,8)
 
 # ══════════════════════════════════════════════════════════════════
-#  7. LEGEND
+#  BATERIA + DIVISOR (debajo de los ESCs)
 # ══════════════════════════════════════════════════════════════════
-legend_x, legend_y = 60, 960
-legend_w, legend_h = 1480, 70
+BY = ESC_Y + 2*eh + 2*gap + 10  # justo debajo de los ESCs
+BX, BW, BH = 380, 260, 100
+dwg.add(dwg.rect((BX,BY),(BW,BH),fill="#FFEBEE",stroke="#2C3E50",stroke_width=2,rx=6))
+txt(BX+BW//2,BY+15,"BATERIA 3S 11.1V","middle","#1A1A1A",12,True)
+txt(BX+BW//2,BY+28,"Divisor R1/R2 = 2.95:1","middle","#555",9)
 
-dwg.add(dwg.rect(insert=(legend_x, legend_y), size=(legend_w, legend_h),
-                 fill='#F9F9F9', stroke=BOX_BORDER, stroke_width=1.5, rx=6, ry=6))
-dwg.add(dwg.text('L E Y E N D A',
-                 insert=(legend_x + 120, legend_y + 28),
-                 text_anchor='middle', font_size=14, font_weight='bold', fill=TEXT,
-                 font_family='Segoe UI, Arial, sans-serif'))
+# Simbolo bateria
+bx, by = BX+BW//2, BY+48
+dwg.add(dwg.line((bx-8,by-8),(bx-8,by+8),stroke="#444",stroke_width=3))
+dwg.add(dwg.line((bx+8,by-6),(bx+8,by+6),stroke="#444",stroke_width=2))
+txt(bx-12,by+4,"+","end",C_PWR,10,True)
+txt(bx+12,by+4,"-","start",C_GND,10,True)
 
-legend_items = [
-    (200, POWER, 'Alimentación (VCC, 5V, Batería +)'),
-    (440, GND, 'Tierra (GND)'),
-    (640, PWM, 'PWM (ESCs)'),
-    (840, I2C, 'I2C (SDA, SCL)'),
-    (1040, UART, 'UART (TX, RX)'),
-    (1240, LED_SIG, 'GPIO (LEDs)'),
-]
+# Divisor simplificado (solo texto)
+r_y = BY+70
+txt(BX+70,r_y,"R1 100kΩ","middle","#1A1A1A",8,False)
+txt(BX+140,r_y,"R2 33kΩ","middle","#1A1A1A",8,False)
+txt(BX+BW//2,BY+88,"A0 = Vbat·R2/(R1+R2) ≈ 4.27V max","middle","#555",8,False)
 
-for lx, lcolor, ltext in legend_items:
-    dwg.add(dwg.line(start=(lx, legend_y + 35), end=(lx + 40, legend_y + 35),
-                     stroke=lcolor, stroke_width=3))
-    dwg.add(dwg.text(ltext, insert=(lx + 48, legend_y + 39),
-                     font_size=12, fill=TEXT,
-                     font_family='Segoe UI, Arial, sans-serif'))
+# Conexiones bateria->divisor->A0
+a0_pin = (BX+BW+18, BY+70)
+ruta([(bx-8,by),(BX+40,by),(BX+40,r_y-4)],C_PWR)
+ruta([(bx+8,by),(bx+8,BY+BH-12),(BX+BW-15,BY+BH-12)],C_GND)
+ruta([(BX+52,r_y),(BX+155,r_y)],C_PWR)
+ruta([(BX+155,r_y),(BX+155,BY+BH-12),(BX+BW-15,BY+BH-12)],C_GND)
+tierra(BX+BW-15,BY+BH-3)
+# Salida A0 a Arduino
+ruta([(BX+52,r_y),(a0_pin[0],a0_pin[1])],C_PWR)
+dot(*a0_pin,C_PWR)
 
 # ══════════════════════════════════════════════════════════════════
-#  8. SAVE & EXPORT
+#  LEDs (abajo, al lado de la bateria)
+# ══════════════════════════════════════════════════════════════════
+LX, LY, LW, LH = 200, 700, 140, 160
+dwg.add(dwg.rect((LX,LY),(LW,LH),fill="#FFFDE7",stroke="#2C3E50",stroke_width=2,rx=6))
+txt(LX+LW//2,LY+18,"LEDs","middle","#1A1A1A",13,True)
+
+for i,(pin_name,offs) in enumerate([("LED1(D10)",35),("LED2(D13)",95)]):
+    ly = LY + offs
+    rr = LX + 40
+    resistencia(rr, ly)
+    txt(rr,ly+16,"220Ω","middle","#1A1A1A",8)
+    ll = LX + 90
+    led(ll, ly)
+    txt(ll+12,ly+4,pin_name,"start","#1A1A1A",8)
+    # Cable desde borde izquierdo
+    ruta([(LX-5,ly),(rr-10,ly)],C_LED)
+    ruta([(rr+10,ly),(ll-8,ly)],C_LED)
+    # GND
+    gx_ = LX+LW-20
+    ruta([(ll+8,ly),(gx_,ly)],C_GND)
+    if i==0:
+        ruta([(gx_,ly),(gx_,ly+95-35)],C_GND)
+
+# ══════════════════════════════════════════════════════════════════
+#  CABLEADO ENTRE COMPONENTES
+# ══════════════════════════════════════════════════════════════════
+
+# 1. UART: ESP32 ↔ D0/D1 (naranja) ────────────────────────────────
+# ESP32 TX → Arduino D0(RX) - misma altura (3.3V→5V, seguro)
+ruta([(EX+EW,AY+L["D0(RX)"]),(AX,AY+L["D0(RX)"])],C_UART)
+txt((EX+EW+AX)//2,AY+L["D0(RX)"]-6,"TX→RX","middle",C_UART,9)
+
+# ESP32 RX ← Arduino D1(TX) - CON DIVISOR DE VOLTAJE 5V→3.3V
+# Arduino TX (5V) → R1 1kΩ → MID → R2 2kΩ → GND ───→ ESP32 RX (3.3V tolerante)
+uart_y = AY+L["D1(TX)"]
+r1_mid = AX - 60   # x=240
+r1_x2 = AX - 40    # x=260 (inicio del resistor R1)
+r1_x1 = AX - 25    # x=275 (fin del resistor R1)
+r2_mid = r1_mid    # x=240
+# Tramo Arduino → R1
+ruta([(AX,uart_y),(r1_x2,uart_y)],C_UART)
+# Resistor R1
+resistencia(r1_mid, uart_y)
+txt(r1_mid, uart_y+14,"R1","middle","#1A1A1A",8)
+# R2 (a GND) - solo bajamos una "rama" desde el mid point
+div_gnd_y = uart_y + 40
+ruta([(r1_mid,uart_y),(r1_mid,div_gnd_y)],C_UART)
+resistencia(r1_mid, (uart_y+div_gnd_y)//2)
+txt(r1_mid+10,(uart_y+div_gnd_y)//2,"R2→GND","start","#1A1A1A",7)
+tierra(r1_mid, div_gnd_y)
+# Tramo divisor → ESP32 RX
+ruta([(r1_mid,uart_y),(EX+EW,uart_y)],C_UART)
+txt((r1_mid+EX+EW)//2,uart_y+14,"5V→3.3V","middle","#E67E22",8)
+# Label
+txt(r1_mid-15, uart_y-8,"1kΩ","end","#1A1A1A",7)
+txt(r1_mid-15, div_gnd_y-18,"2kΩ","end","#1A1A1A",7)
+
+# 2. I2C: Arduino A4/A5 → MPU6500 (verde) ─────────────────────────
+# A4(SDA) → MPU SDA
+ruta([(AX+AW,AY+R["A4(SDA)"]),(AX+AW+40,AY+R["A4(SDA)"]),
+      (AX+AW+40,AY+R["A4(SDA)"]),(MX,mpu_sda[1])],C_I2C)
+txt(AX+AW+45,AY+R["A4(SDA)"]-6,"SDA→","start",C_I2C,9)
+# A5(SCL) → MPU SCL
+ruta([(AX+AW,AY+R["A5(SCL)"]),(AX+AW+40,AY+R["A5(SCL)"]),
+      (AX+AW+40,AY+R["A5(SCL)"]),(MX,mpu_scl[1])],C_I2C)
+txt(AX+AW+45,AY+R["A5(SCL)"]+14,"SCL→","start",C_I2C,9)
+
+# 3. A0: Bateria → Arduino A0 (rojo) ──────────────────────────────
+ard_a0_y = AY+R["A0(Bat)"]
+a0_mid_x = AX - 5  # justo a la izquierda del Arduino
+ruta([(a0_pin[0],a0_pin[1]),(a0_pin[0],BY+BH+5),
+      (a0_mid_x,BY+BH+5),(a0_mid_x,ard_a0_y),(AX+AW,ard_a0_y)],C_PWR)
+txt(a0_mid_x,(BY+BH+5+ard_a0_y)//2,"A0←Bat","middle",C_PWR,9)
+
+# 4. D10/D13 → LEDs (purpura) ─────────────────────────────────────
+# D10 → LED1
+d10_y = AY+L["D10→LED1"]
+lx_l1 = LX-5
+ly_l1 = LY+35
+# Ruta: baja desde D10, gira a izquierda, baja mas, gira a derecha hacia LED
+inter_x = AX-25
+ruta([(AX,d10_y),(inter_x,d10_y),(inter_x,ly_l1),(lx_l1,ly_l1)],C_LED)
+txt(inter_x,(d10_y+ly_l1)//2,"D10→LED1","middle",C_LED,8)
+
+# D13 → LED2
+d13_y = AY+L["D13→LED2"]
+ly_l2 = LY+95
+ruta([(AX,d13_y),(inter_x,d13_y),(inter_x,ly_l2),(lx_l1,ly_l2)],C_LED)
+txt(inter_x,(d13_y+ly_l2)//2,"D13→LED2","middle",C_LED,8)
+
+# 5. 5V BEC: desde ESC → Arduino 5V (rojo punteado) ──────────────
+ard_5v_y = AY+R["5V(BEC)"]
+bec_esc_x = x0+ew+gap + 50
+bec_esc_y = ESC_Y+eh
+esc_grid_bottom = ESC_Y + 2*eh + 2*gap  # parte inferior de la parrilla ESC
+ruta([(bec_esc_x,bec_esc_y),(bec_esc_x,esc_grid_bottom+5),
+      (AX+AW+20,esc_grid_bottom+5),(AX+AW+20,ard_5v_y),(AX+AW,ard_5v_y)],C_PWR,dash=True)
+txt(bec_esc_x,esc_grid_bottom-8,"5V BEC→","middle",C_PWR,9)
+
+# 6. GND comun ────────────────────────────────────────────────────
+ard_gnd_y = AY+R["GND"]
+gnd_esc_x = x0+50
+gnd_esc_y = ESC_Y+eh
+ruta([(gnd_esc_x,gnd_esc_y),(gnd_esc_x,esc_grid_bottom+5),
+      (AX+AW+20,esc_grid_bottom+5),(AX+AW+20,ard_gnd_y),(AX+AW,ard_gnd_y)],C_GND)
+txt(gnd_esc_x,esc_grid_bottom-8,"GND","middle",C_GND,9)
+tierra(gnd_esc_x,esc_grid_bottom+15)
+
+# 7. 5V: Arduino → ESP32-CAM (rojo) ─────────────────────────────
+ard_5v_y = AY+R["5V(BEC)"]
+esp_vcc_x = EX+EW-30
+esp_vcc_y = EY+EH+8
+# Ruta: desde pin 5V del Arduino, baja y cruza por debajo, sube a ESP32
+ruta([(AX+AW,ard_5v_y),(AX+AW+15,ard_5v_y),
+      (AX+AW+15,EY+EH+15),(EX+EW+15,EY+EH+15),
+      (EX+EW+15,EY+EH+8),(esp_vcc_x,EY+EH+8)],C_PWR)
+txt(esp_vcc_x,EY+EH+20,"+5V","middle",C_PWR,9,True)
+
+# 8. Decoupling capacitor en ESP32-CAM ──────────────────────────
+cap_x, cap_y = EX+50, EY+EH+2
+condensador(cap_x, cap_y)
+txt(cap_x-5, cap_y+18,"C1","end","#1A1A1A",7)
+txt(cap_x+5, cap_y+18,"100µF","start","#1A1A1A",7)
+txt(cap_x, cap_y+28,"+ cap 0.1µF","middle","#1A1A1A",7)
+
+# 9. GND: Arduino → ESP32-CAM y MPU6500 ─────────────────────────
+ard_gnd_y2 = AY+R["GND"]
+ruta([(AX+AW,ard_gnd_y2),(AX+AW+15,ard_gnd_y2),
+      (AX+AW+15,EY+EH+22),(EX+EW,EY+EH+22)],C_GND)
+txt(AX+AW+15,(ard_gnd_y2+EY+EH+22)//2,"GND→ESP32","middle",C_GND,8)
+
+# ══════════════════════════════════════════════════════════════════
+#  LEYENDA
+# ══════════════════════════════════════════════════════════════════
+lx,ly = 60, 1005
+dwg.add(dwg.rect((lx,ly),(W-120,30),fill="#F9F9F9",stroke="#2C3E50",stroke_width=1.5,rx=6))
+txt(lx+40,ly+20,"LEYENDA:","start","#1A1A1A",10,True)
+items=[(200,C_PWR,"Alim."),(340,C_GND,"Tierra"),
+       (500,C_PWM,"PWM"),(620,C_I2C,"I2C"),
+       (740,C_UART,"UART"),(880,C_LED,"GPIO")]
+for ix,ic,it in items:
+    dwg.add(dwg.line((ix,ly+15),(ix+25,ly+15),stroke=ic,stroke_width=2.5))
+    txt(ix+30,ly+19,it,"start","#1A1A1A",9)
+
+# ══════════════════════════════════════════════════════════════════
+#  GUARDAR
 # ══════════════════════════════════════════════════════════════════
 dwg.save()
-print(f'SVG saved: {OUTPUT_SVG}')
-
-cairosvg.svg2png(url=OUTPUT_SVG, write_to=OUTPUT_PNG,
-                 output_width=W, output_height=H)
-print(f'PNG saved: {OUTPUT_PNG}')
-print(f'Dimensions: {W}x{H} pixels')
+print(f"OK: {OUT}.svg guardado")
+if HAS_CAIRO:
+    cairosvg.svg2png(url=OUT+".svg",write_to=OUT+".png",output_width=W,output_height=H)
+    print(f"OK: {OUT}.png ({W}x{H})")
+else:
+    print(f"[SKIP] PNG conversion: cairo library no disponible")
+    print(f"[HINT] Instalar con: pip install cairosvg y tener cairo.dll en PATH")

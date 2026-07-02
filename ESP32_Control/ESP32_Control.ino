@@ -15,7 +15,7 @@ const char *password = "12345678";
 // =========== UART to Arduino UNO ===========
 #define UART_TX 17
 #define UART_RX 16
-#define UART_BAUD 115200
+#define UART_BAUD 57600
 
 // =========== Camera Pins (AI-Thinker ESP32-CAM) ===========
 #define PWDN_GPIO_NUM    32
