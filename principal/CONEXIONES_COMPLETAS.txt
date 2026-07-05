@@ -137,14 +137,31 @@ puedes quemar el Arduino, el ESP32 o los ESCs.
         ESP32, quemas el pin del ESP32. Por eso usamos un DIVISOR
         DE VOLTAJE.
 
-        ┌─── DIVISOR DE VOLTAJE (importante, no te lo saltes) ──────┐
-        │                                                           │
-        │  Arduino D1(TX) 5V ─── R1=1k ohm ──┬── R2=2.2k ohm ── GND │
-        │                                     │                     │
-        │                                    ┌┴┐                    │
-        │                                   ESP32-CAM RX (GPIO3)    │
-        │                                   (3.3V)                  │
-        └───────────────────────────────────────────────────────────┘
+        ┌──────────────────────────────────────────────────────────┐
+        │                    DIVISOR DE VOLTAJE                    │
+        │                                                          │
+        │                        ┌──────────────────┐             │
+        │   Arduino D1 (TX) 5V ──┤    R1 = 1kΩ      ├──┐          │
+        │                        └──────────────────┘  │          │
+        │                                              │          │
+        │              ┌───────────────────────────────┤          │
+        │              │                               │          │
+        │              │   ┌──────────────────┐        │          │
+        │              ├───┤   R2 = 2.2kΩ     ├────────+── GND    │
+        │              │   └──────────────────┘        │          │
+        │              │                               │          │
+        │              │   ┌──────────────────┐        │          │
+        │              └───┤ ESP32 RX (GPIO3) │        │          │
+        │                  │     (3.44V)      │        │          │
+        │                  └──────────────────┘        │          │
+        └──────────────────────────────────────────────┘          │
+                                                                   │
+        Explicacion:
+        1. D1 (5V) -> pasa por R1 de 1kΩ
+        2. Llega a un NODO (union de 3 cables)
+        3. Del nodo, R2 de 2.2kΩ baja a GND
+        4. Del mismo nodo, el ESP32 RX toma la senal
+        5. Voltaje al ESP32 = 5V x 2.2k/(1k+2.2k) = 3.44V
 
         ESP32-CAM GPIO1 (TX) ─── directo a Arduino D0(RX)
         ESP32-CAM GPIO3 (RX) ─── a traves del divisor (ver arriba)
@@ -323,8 +340,17 @@ puedes quemar el Arduino, el ESP32 o los ESCs.
        -> Abrir con Arduino IDE, seleccionar "AI-Thinker ESP32-CAM",
           poner GPIO0 a GND, Programar, quitar GPIO0, Reset
 
-    Prueba solo LEDs (sin ESP32, sin MPU6500, sin ESCs):
-       PRUEBA_FISICA/PRUEBA_FISICA.ino
-       -> Solo Arduino UNO + LEDs en D3,D5,D6,D9,D10,D13
-       -> Ideal para probar que el PWM funciona antes de conectar
-         todo lo demas
+     Prueba solo ESCs (sin ESP32, sin MPU6500):
+        PRUEBA_FISICA/PRUEBA_FISICA.ino
+        -> Solo Arduino UNO + 4 ESCs conectados a D3,D5,D6,D9
+        -> Usa PWM 50Hz (estandar para ESCs)
+        -> Ideal para probar cada ESC individualmente antes del
+          montaje completo
+        -> CONEXIONES:
+             D3 -> señal ESC1
+             D5 -> señal ESC2
+             D6 -> señal ESC3
+             D9 -> señal ESC4
+             GND del Power HUB -> GND del Arduino (obligatorio)
+             Alimentacion ESCs desde Power HUB BAT+
+        -> PRECAUCION: quitar helices antes de probar!
