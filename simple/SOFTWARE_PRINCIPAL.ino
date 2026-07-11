@@ -1,6 +1,7 @@
 /*
-   DRONE DESDE CERO - v2.0 (SIN LEDS)
-   Hardware: Arduino UNO + MPU6500 + ESP32 (WiFi/Cam)
+   DRONE DESDE CERO - v2.0 (SIN LEDS, SIN POWER HUB)
+   Hardware: Arduino UNO + MPU6500 + ESP32-CAM (WiFi/Cam)
+   Alimentacion: 5V desde BEC del ESC1 (cable rojo del servo)
    https://arduproject.es/
 */
 
@@ -8,8 +9,8 @@
 
 #define pin_motor1 3
 #define pin_motor2 5
-#define pin_motor3 6
-#define pin_motor4 9
+#define pin_motor3 10
+#define pin_motor4 11
 
 #define MPU6500_adress 0x68
 
@@ -53,13 +54,12 @@ float tension_bateria, lectura_ADC;
 float RC_Throttle = 1000, RC_Pitch = 0, RC_Roll = 0, RC_Yaw = 0;
 float throttle_min = 950;
 bool armado = false;
+bool calMode = false;
 
 // ESC signals
 float ESC1_us, ESC2_us, ESC3_us, ESC4_us;
 
-// Non-blocking PWM state
-volatile unsigned long pwm_start_time;
-volatile bool pwm_active = false;
+
 
 void setup() {
   Wire.begin();
@@ -77,25 +77,25 @@ void setup() {
   MPU6500_iniciar();
   MPU6500_calibrar();
 
-  while (!Serial.available()) {
+  unsigned long inicio = millis();
+  while (!Serial.available() && millis() - inicio < 8000) {
     leer_comando_serial();
     delay(10);
   }
 
-  while (RC_Throttle > 1050 || RC_Throttle < 950) {
-    leer_comando_serial();
+  if (Serial.available()) {
+    while (RC_Throttle > 1050 || RC_Throttle < 950) {
+      leer_comando_serial();
+    }
   }
   armado = true;
   loop_timer = micros();
 }
 
 void loop() {
-  while (pwm_active) PWM_end();
-
   while (micros() - loop_timer < usCiclo);
   loop_timer = micros();
 
-  PWM_begin();
   leer_comando_serial();
   Lectura_tension_bateria();
   MPU6500_leer();
@@ -107,7 +107,20 @@ void loop() {
   } else {
     ESC1_us = 950; ESC2_us = 950; ESC3_us = 950; ESC4_us = 950;
   }
-  PWM_end();
+
+  unsigned long t0 = micros();
+  digitalWrite(pin_motor1, HIGH);
+  digitalWrite(pin_motor2, HIGH);
+  digitalWrite(pin_motor3, HIGH);
+  digitalWrite(pin_motor4, HIGH);
+  while (true) {
+    unsigned long e = micros() - t0;
+    if (e >= ESC1_us) digitalWrite(pin_motor1, LOW);
+    if (e >= ESC2_us) digitalWrite(pin_motor2, LOW);
+    if (e >= ESC3_us) digitalWrite(pin_motor3, LOW);
+    if (e >= ESC4_us) digitalWrite(pin_motor4, LOW);
+    if (e >= ESC1_us && e >= ESC2_us && e >= ESC3_us && e >= ESC4_us) break;
+  }
 
   angulo_pitch_ant = angulo_pitch;
   angulo_roll_ant  = angulo_roll;
@@ -140,6 +153,7 @@ void leer_comando_serial() {
         else if (strncmp(p, "PIT:", 4) == 0) RC_Pitch    = atoi(p + 4);
         else if (strncmp(p, "ROL:", 4) == 0) RC_Roll     = atoi(p + 4);
         else if (strncmp(p, "YAW:", 4) == 0) RC_Yaw      = atoi(p + 4);
+        else if (strncmp(p, "CAL:", 4) == 0) calMode     = atoi(p + 4);
         else if (strncmp(p, "SET:", 4) == 0) {
           char var[20]; int val;
           if (sscanf(p, "SET:%[^:]:%d", var, &val) == 2) {
@@ -170,6 +184,8 @@ void leer_comando_serial() {
   }
 }
 
+bool mpu_ok = false;
+
 void MPU6500_iniciar() {
   Wire.beginTransmission(MPU6500_adress);
   Wire.write(0x6B);
@@ -195,16 +211,15 @@ void MPU6500_iniciar() {
   Wire.write(0x75);
   Wire.endTransmission();
   Wire.requestFrom(MPU6500_adress, 1);
-  while (Wire.available() < 1);
+  if (Wire.available() < 1) return;
   byte whoami = Wire.read();
 
-  if (whoami != 0x70 && whoami != 0x68) {
-    Serial.println("MPU6500 WHOAMI failed - check connections");
-    while (1);
-  }
+  if (whoami != 0x70 && whoami != 0x68) return;
+  mpu_ok = true;
 }
 
 void MPU6500_calibrar() {
+  if (!mpu_ok) { accCalibOK = true; return; }
   for (int cal_int = 0; cal_int < 3000; cal_int++) {
     MPU6500_leer();
     gyro_X_cal += gx;
@@ -225,11 +240,12 @@ void MPU6500_calibrar() {
 }
 
 void MPU6500_leer() {
+  if (!mpu_ok) { gx = 0; gy = 0; gz = 0; ax = 0; ay = 0; az = 4096; return; }
   Wire.beginTransmission(MPU6500_adress);
   Wire.write(0x3B);
   Wire.endTransmission();
   Wire.requestFrom(MPU6500_adress, 14);
-  while (Wire.available() < 14);
+  if (Wire.available() < 14) { gx = 0; gy = 0; gz = 0; ax = 0; ay = 0; az = 4096; return; }
 
   ax = Wire.read() << 8 | Wire.read();
   ay = Wire.read() << 8 | Wire.read();
@@ -287,6 +303,13 @@ void MPU6500_procesar() {
 }
 
 void Modulador() {
+  if (calMode) {
+    ESC1_us = RC_Throttle;
+    ESC2_us = RC_Throttle;
+    ESC3_us = RC_Throttle;
+    ESC4_us = RC_Throttle;
+    return;
+  }
   if (RC_Throttle <= 1300) {
     PID_W_Pitch_I = 0;
     PID_W_Roll_I = 0;
@@ -322,29 +345,7 @@ void Modulador() {
   }
 }
 
-void PWM_begin() {
-  pwm_active = true;
-  pwm_start_time = micros();
-  digitalWrite(pin_motor1, HIGH);
-  digitalWrite(pin_motor2, HIGH);
-  digitalWrite(pin_motor3, HIGH);
-  digitalWrite(pin_motor4, HIGH);
-}
 
-void PWM_end() {
-  if (!pwm_active) return;
-  unsigned long elapsed = micros() - pwm_start_time;
-
-  if (elapsed >= ESC1_us) digitalWrite(pin_motor1, LOW);
-  if (elapsed >= ESC2_us) digitalWrite(pin_motor2, LOW);
-  if (elapsed >= ESC3_us) digitalWrite(pin_motor3, LOW);
-  if (elapsed >= ESC4_us) digitalWrite(pin_motor4, LOW);
-
-  if (digitalRead(pin_motor1) == LOW && digitalRead(pin_motor2) == LOW &&
-      digitalRead(pin_motor3) == LOW && digitalRead(pin_motor4) == LOW) {
-    pwm_active = false;
-  }
-}
 
 void PID_ang() {
   PID_ang_Pitch_error = RC_Pitch - angulo_pitch;

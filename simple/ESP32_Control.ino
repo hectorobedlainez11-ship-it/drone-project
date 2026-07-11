@@ -1,7 +1,8 @@
 /*
-   ESP32 WiFi Camera + RC Controller for Arduino UNO
+   ESP32 WiFi Camera + RC Controller for Arduino UNO (SIN POWER HUB)
    Camera: OV2640
    Communication: UART (Serial2) to Arduino UNO
+   Alimentacion: 5V desde BEC del ESC2 (cable rojo del servo)
 */
 
 #include <WiFi.h>
@@ -13,8 +14,9 @@ const char *ssid = "Drone_ESP32";
 const char *password = "12345678";
 
 // =========== UART to Arduino UNO ===========
-#define UART_TX 17
-#define UART_RX 16
+// GPIO1 (TX) → Arduino D0 (RX),  GPIO3 (RX) ← Arduino D1 (TX)
+#define UART_TX 1
+#define UART_RX 3
 #define UART_BAUD 57600
 
 // =========== Camera Pins (AI-Thinker ESP32-CAM) ===========
@@ -42,10 +44,19 @@ volatile bool newData = false;
 WebServer server(80);
 
 void setup() {
-  Serial.begin(115200);
-  Serial2.begin(UART_BAUD, SERIAL_8N1, UART_RX, UART_TX);
+  Serial.begin(UART_BAUD);
 
-  // Init camera
+  // WiFi AP (siempre, aunque la cámara falle)
+  WiFi.softAP(ssid, password);
+
+  // Web routes
+  server.on("/", HTTP_GET, handleRoot);
+  server.on("/control", HTTP_GET, handleControl);
+  server.on("/cam.jpg", HTTP_GET, handleJPG);
+
+  server.begin();
+
+  // Init camera (puede fallar, pero el WiFi ya está arriba)
   camera_config_t config;
   config.ledc_channel = LEDC_CHANNEL_0;
   config.ledc_timer = LEDC_TIMER_0;
@@ -73,23 +84,8 @@ void setup() {
 
   esp_err_t err = esp_camera_init(&config);
   if (err != ESP_OK) {
-    Serial.println("Camera init failed");
     return;
   }
-
-  // WiFi AP
-  WiFi.softAP(ssid, password);
-  IPAddress IP = WiFi.softAPIP();
-  Serial.print("AP IP: ");
-  Serial.println(IP);
-
-  // Web routes
-  server.on("/", HTTP_GET, handleRoot);
-  server.on("/control", HTTP_GET, handleControl);
-  server.on("/cam.jpg", HTTP_GET, handleJPG);
-
-  server.begin();
-  Serial.println("Server started");
 }
 
 void loop() {
@@ -101,7 +97,7 @@ void loop() {
     int len = snprintf(buf, sizeof(buf), "THR:%d,PIT:%d,ROL:%d,YAW:%d,", thr, pit, rol, yaw);
     for (char *p = buf; *p; p++) ck ^= *p;
     snprintf(buf + len, sizeof(buf) - len, "CK:%02X\n", ck);
-    Serial2.print(buf);
+    Serial.print(buf);
     newData = false;
   }
 }
@@ -113,28 +109,41 @@ void handleRoot() {
 <!DOCTYPE html>
 <html>
 <head>
-<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="viewport" content="width=device-width,initial-scale=1,user-scalable=no">
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
-body{font-family:Arial;background:#111;color:#fff;text-align:center}
-h1{font-size:16px;padding:8px;background:#222}
-.stream{width:100%;max-width:640px;margin:auto}
-.stream img{width:100%;display:block}
-.controls{padding:10px;max-width:500px;margin:auto}
-.slider-group{margin:10px 0}
-.slider-group label{display:block;font-size:14px;margin-bottom:2px}
-.slider-group input{width:100%;height:30px}
-.val{font-size:20px;font-weight:bold}
-#thrVal{color:#f44}
-#pitVal{color:#4f4}
-#rolVal{color:#44f}
-#yawVal{color:#ff4}
-.status{font-size:12px;color:#888;margin-top:10px}
+body{font-family:Arial,Helvetica,sans-serif;background:#0a0a0a;color:#fff;display:flex;flex-direction:column;align-items:center;min-height:100dvh;padding:8px}
+h1{font-size:18px;padding:12px 16px;background:#1a1a2e;border-radius:12px;width:100%;max-width:500px;text-align:center;letter-spacing:1px;margin-bottom:12px}
+.stream{width:100%;max-width:500px;aspect-ratio:4/3;background:#1a1a1a;border-radius:12px;overflow:hidden;display:flex;align-items:center;justify-content:center;margin-bottom:12px;position:relative}
+.stream img{width:100%;height:100%;object-fit:cover;display:block}
+.stream svg{width:64px;height:64px;opacity:.3}
+.controls{width:100%;max-width:500px;display:flex;flex-direction:column;gap:10px;flex:1;padding-bottom:12px}
+.slider-group{background:#1a1a1a;border-radius:12px;padding:12px 16px 16px}
+.slider-group label{display:flex;justify-content:space-between;font-size:14px;font-weight:600;margin-bottom:8px;text-transform:uppercase;letter-spacing:.5px}
+.slider-group input{width:100%;height:40px;-webkit-appearance:none;appearance:none;background:transparent;cursor:pointer}
+.slider-group input::-webkit-slider-runnable-track{height:6px;background:#333;border-radius:3px}
+.slider-group input::-webkit-slider-thumb{-webkit-appearance:none;width:28px;height:28px;border-radius:50%;background:#fff;margin-top:-11px;box-shadow:0 2px 8px rgba(0,0,0,.5)}
+.slider-group input[type=range]::-moz-range-track{height:6px;background:#333;border-radius:3px}
+.slider-group input[type=range]::-moz-range-thumb{width:28px;height:28px;border-radius:50%;background:#fff;border:none}
+.val{font-size:22px;font-weight:800}
+#thrVal{color:#ff4444}
+#pitVal{color:#44ff88}
+#rolVal{color:#4488ff}
+#yawVal{color:#ffdd44}
+.status{text-align:center;font-size:13px;font-weight:600;color:#00ff88;padding:10px;background:#1a1a2e;border-radius:12px;width:100%;max-width:500px;letter-spacing:.5px}
+.cam-offline{display:none;flex-direction:column;align-items:center;gap:8px;color:#555}
+.cam-offline svg{width:48px;height:48px;fill:#555}
 </style>
 </head>
 <body>
-<h1>&#9992; DRONE CONTROL v2</h1>
-<div class="stream"><img src="/cam.jpg" id="stream"></div>
+<h1>&#9992;&#65039; DRONE CONTROL v2</h1>
+<div class="stream">
+  <img src="/cam.jpg" id="stream" onerror="this.style.display='none';document.getElementById('camFallback').style.display='flex'">
+  <div class="cam-offline" id="camFallback">
+    <svg viewBox="0 0 24 24"><path d="M23 18V6c0-1.1-.9-2-2-2H3c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h18c1.1 0 2-.9 2-2zM8.5 12.5l2.5 3.01L14.5 11l4.5 6H5l3.5-4.5z"/></svg>
+    <span>Cámara no disponible</span>
+  </div>
+</div>
 <div class="controls">
 <div class="slider-group">
 <label>THROTTLE <span class="val" id="thrVal">1000</span></label>
@@ -152,20 +161,10 @@ h1{font-size:16px;padding:8px;background:#222}
 <label>YAW <span class="val" id="yawVal">0</span></label>
 <input type="range" id="yaw" min="-45" max="45" value="0" step="1">
 </div>
-<div class="status">Conectado al drone</div>
 </div>
+<div class="status">&#9679; Conectado al dron</div>
 <script>
-function send(){var t=document.getElementById('thr').value,p=document.getElementById('pit').value,r=document.getElementById('rol').value,y=document.getElementById('yaw').value;
-document.getElementById('thrVal').textContent=t;
-document.getElementById('pitVal').textContent=p;
-document.getElementById('rolVal').textContent=r;
-document.getElementById('yawVal').textContent=y;
-fetch('/control?thr='+t+'&pit='+p+'&rol='+r+'&yaw='+y);}
-document.getElementById('thr').oninput=send;
-document.getElementById('pit').oninput=send;
-document.getElementById('rol').oninput=send;
-document.getElementById('yaw').oninput=send;
-setInterval(function(){document.getElementById('stream').src='/cam.jpg?'+Date.now()},100);
+(function(){var t=document.getElementById('thr'),p=document.getElementById('pit'),r=document.getElementById('rol'),y=document.getElementById('yaw'),tv=document.getElementById('thrVal'),pv=document.getElementById('pitVal'),rv=document.getElementById('rolVal'),yv=document.getElementById('yawVal'),img=document.getElementById('stream');function send(){tv.textContent=t.value;pv.textContent=p.value;rv.textContent=r.value;yv.textContent=y.value;fetch('/control?thr='+t.value+'&pit='+p.value+'&rol='+r.value+'&yaw='+y.value)}t.oninput=send;p.oninput=send;r.oninput=send;y.oninput=send;setInterval(function(){img.style.display='';document.getElementById('camFallback').style.display='none';img.src='/cam.jpg?'+Date.now()},200)})();
 </script>
 </body>
 </html>
