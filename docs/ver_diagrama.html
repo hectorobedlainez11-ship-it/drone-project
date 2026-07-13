@@ -6,84 +6,82 @@
 *{margin:0;padding:0;box-sizing:border-box}
 body{background:#1e1e1e;display:flex;flex-direction:column;align-items:center;padding:20px;gap:20px}
 h1{color:#fff;font-family:Arial;font-size:18px}
-.mermaid{background:#fff;padding:30px;border-radius:12px;max-width:1400px;width:100%;overflow:auto}
+.mermaid{background:#fff;padding:30px;border-radius:12px;max-width:1600px;width:100%;overflow:auto}
 </style>
 </head>
 <body>
 <h1>Diagrama de Flujo - Sistema de Ventas y Comisiones</h1>
 <div class="mermaid">
 %%{init:{'theme':'base','themeVariables':{'primaryColor':'#fff','lineColor':'#555','textColor':'#222'}}}%%
-flowchart TB
+flowchart LR
   classDef inicio fill:#dbeafe,stroke:#2563eb,stroke-width:3px
   classDef proceso fill:#f0fdf4,stroke:#16a34a,stroke-width:2px
   classDef decision fill:#fef9c3,stroke:#ca8a04,stroke-width:2px
-  classDef sub fill:#f5f3ff,stroke:#7c3aed,stroke-width:2px
   classDef fin fill:#fef2f2,stroke:#dc2626,stroke-width:3px
-  classDef doc fill:#fff7ed,stroke:#ea580c,stroke-width:2px
 
-  subgraph AUTH["🔐 1. INICIO DE SESIÓN"]
+  subgraph AUTH["🔐 1. LOGIN"]
+    direction TB
     A1([Inicio]):::inicio
-    A2[Ingresa usuario y contraseña]:::proceso
-    A3{"¿Credenciales válidas?"}:::decision
-    A4[Redirige al dashboard según su rol]:::proceso
-    A5{"¿Intentos > 5?"}:::decision
-    A6[Bloquear cuenta por 30 min]:::proceso
-    A7([Fin - Acceso denegado]):::fin
-
+    A2[Usuario + contraseña]:::proceso
+    A3{"Validas?"}:::decision
+    A4[Dashboard segun rol]:::proceso
+    A5{"Intentos >5?"}:::decision
+    A6[Bloquear 30 min]:::proceso
+    A7([Denegado]):::fin
     A1 --> A2 --> A3
-    A3 -->|Sí| A4
+    A3 -->|Si| A4
     A3 -->|No| A5
-    A5 -->|Sí| A6 --> A7
+    A5 -->|Si| A6 --> A7
     A5 -->|No| A2
   end
 
-  subgraph REG["👤 2. REGISTRO DE VENDEDOR"]
-    R1[Ingresa datos personales<br/>nombre, identificación, teléfono]:::proceso
-    R2[Ingresa datos laborales<br/>fecha contratación, tipo contrato,<br/>salario base, comisión global]:::proceso
-    R3[Ingresa datos bancarios<br/>banco, tipo cuenta, número]:::proceso
-    R4{"¿Tiene supervisor?"}:::decision
+  subgraph REG["👤 2. REGISTRO VENDEDOR"]
+    direction TB
+    R1[Datos personales<br/>nombre, ID, telefono]:::proceso
+    R2[Datos laborales<br/>contrato, salario, comision]:::proceso
+    R3[Datos bancarios<br/>banco, cuenta]:::proceso
+    R4{"Tiene supervisor?"}:::decision
     R5[Asignar supervisor]:::proceso
-    R6{"¿Tiene zona?"}:::decision
-    R7[Asignar zona de trabajo]:::proceso
-    R8[Contactos de emergencia<br/>mínimo 1 requerido]:::proceso
-    R9([Vendedor activo]):::fin
-
+    R6{"Tiene zona?"}:::decision
+    R7[Asignar zona]:::proceso
+    R8[Contactos emergencia]:::proceso
+    R9([Vendedor ACTIVO]):::fin
     R1 --> R2 --> R3 --> R4
-    R4 -->|Sí| R5 --> R6
+    R4 -->|Si| R5 --> R6
     R4 -->|No| R6
-    R6 -->|Sí| R7 --> R8
+    R6 -->|Si| R7 --> R8
     R6 -->|No| R8
     R8 --> R9
   end
 
-  subgraph CV["📋 3. PROCESO DE VENTA"]
-    C1[Cliente solicita cotización]:::proceso
-    C2[Vendedor crea cotización<br/>con productos y precios]:::proceso
-    C3{"¿Cliente aprueba?"}:::decision
-    C4[Convertir cotización en venta]:::proceso
-    C5[Venta en estado BORRADOR]:::proceso
-    C6{"¿Datos correctos?"}:::decision
-    C7[Venta CONFIRMADA]:::proceso
-    C8[Registrar forma de pago<br/>efectivo / tarjeta / transferencia<br/>pueden ser múltiples]:::proceso
-    C9{"¿Pago recibido?"}:::decision
-    C10[Venta PAGADA]:::proceso
-    C11{"¿Requiere envío?"}:::decision
-    C12[Venta ENVIADA]:::proceso
-    C13[Generar factura - Venta FACTURADA]:::proceso
-    C14([Venta completada]):::fin
-    C15([Venta ANULADA]):::fin
-
+  subgraph CV["📋 3. PROCESO VENTA"]
+    direction TB
+    C1[Cliente solicita cotizacion]:::proceso
+    C2[Crear cotizacion]:::proceso
+    C3{"Aprueba?"}:::decision
+    C4[Convertir en venta]:::proceso
+    C5[BORRADOR]:::proceso
+    C6{"Datos ok?"}:::decision
+    C7[CONFIRMADA]:::proceso
+    C8[Registrar forma pago]:::proceso
+    C9{"Pago recibido?"}:::decision
+    C10[PAGADA]:::proceso
+    C11{"Requiere envio?"}:::decision
+    C12[ENVIADA]:::proceso
+    C13[FACTURADA]:::proceso
+    C14([Venta OK]):::fin
+    C15([ANULADA]):::fin
     C1 --> C2 --> C3
-    C3 -->|Sí| C4 --> C5
+    C3 -->|Si| C4 --> C5
     C3 -->|No| C15
     C5 --> C6
-    C6 -->|Sí| C7
+    C6 -->|Si| C7
     C6 -->|No| C5
     C7 --> C8 --> C9
-    C9 -->|Sí| C10
+    C9 -->|Si| C10
     C9 -->|No| C8
     C10 --> C11
-    C11 -->|Sí| C12 --> C13
+    C11 -->|Si| C12 --> C13
     C11 -->|No| C13
     C13 --> C14
     C7 -.->|anular| C15
@@ -92,69 +90,80 @@ flowchart TB
     C13 -.->|anular| C15
   end
 
-  subgraph COM["🏆 4. CÁLCULO DE COMISIONES"]
+  subgraph COM["🏆 4. COMISIONES"]
+    direction TB
     H1([Venta facturada]):::inicio
-    H2[Obtener detalle de venta<br/>productos + cantidades + precios]:::proceso
-    H3["Por cada producto: comisión<br/>normal o especial según fecha"]:::proceso
-    H4[Calcular comisión:<br/>base * pct / 100]:::proceso
-    H5[Agrupar comisiones por vendedor<br/>y período (semanal/quincenal/mensual)]:::proceso
-    H6{"¿Tiene meta el vendedor<br/>este período?"}:::decision
-    H7[Comparar ventas acumuladas<br/>contra meta_ventas]:::proceso
-    H8{"¿Cumplió la meta?"}:::decision
-    H9[Agregar bono por cumplimiento<br/>o extra en comisiones]:::proceso
-    H10[Estado comisión: PENDIENTE<br/>lista para pago]:::proceso
-    H11([Fin cálculo]):::fin
-
+    H2[Detalle venta<br/>productos + cantidades]:::proceso
+    H3["% comision por producto<br/>normal o especial"]:::proceso
+    H4[Calcular: base * pct / 100]:::proceso
+    H5[Agrupar por vendedor<br/>y periodo]:::proceso
+    H6{"Tiene meta?"}:::decision
+    H7[Comparar vs meta_ventas]:::proceso
+    H8{"Cumplio?"}:::decision
+    H9[+ Bono por cumplimiento]:::proceso
+    H10[Estado: PENDIENTE]:::proceso
+    H11([Fin calculo]):::fin
     H1 --> H2 --> H3 --> H4 --> H5 --> H6
-    H6 -->|Sí| H7 --> H8
-    H8 -->|Sí| H9 --> H10
+    H6 -->|Si| H7 --> H8
+    H8 -->|Si| H9 --> H10
     H8 -->|No| H10
     H6 -->|No| H10 --> H11
   end
 
-  subgraph PAG["💵 5. PAGO DE COMISIONES"]
-    P1([Inicio de período de pago]):::inicio
-    P2[Tomar comisiones PENDIENTES<br/>del período]:::proceso
-    P3[Generar pago agrupado por vendedor]:::proceso
-    P4[Registrar método de pago<br/>transferencia/efectivo/cheque/depósito]:::proceso
-    P5{"¿Monto coincide con banco?"}:::decision
-    P6[Conciliación: CONCILIADO]:::proceso
-    P7[Cambiar estado comisiones a PAGADAS]:::proceso
-    P8([Pago completado]):::fin
-    P9[Conciliación: DIFERENCIA<br/>marcar diferencia]:::proceso
-    P10[Pago RECHAZADO - revisar]:::proceso
-    P12([Pago ANULADO]):::fin
-
+  subgraph PAG["💵 5. PAGOS"]
+    direction TB
+    P1([Inicio periodo pago]):::inicio
+    P2[Comisiones PENDIENTES<br/>del periodo]:::proceso
+    P3[Generar pago x vendedor]:::proceso
+    P4[Registrar metodo pago<br/>transf / efectivo / cheque]:::proceso
+    P5{"Coincide con banco?"}:::decision
+    P6[CONCILIADO]:::proceso
+    P7[Comisiones a PAGADAS]:::proceso
+    P8([Pago OK]):::fin
+    P9[DIFERENCIA<br/>marcar diferencia]:::proceso
+    P10[RECHAZADO<br/>revisar]:::proceso
+    P12([ANULADO]):::fin
     P1 --> P2 --> P3 --> P4 --> P5
-    P5 -->|Sí| P6 --> P7 --> P8
+    P5 -->|Si| P6 --> P7 --> P8
     P5 -->|No| P9 --> P10
     P10 -->|corregir| P4
     P10 -.->|desistir| P12
   end
 
   subgraph REP["📊 6. REPORTES PROGRAMADOS"]
-    R1([Llega fecha/hora de ejecución]):::inicio
-    R2{"¿Reporte activo?"}:::decision
-    R3[Ejecutar consulta según tipo<br/>ventas/comisiones/pagos/vendedores]:::proceso
-    R4{"¿Ejecución exitosa?"}:::decision
-    R5[Generar archivo<br/>PDF / Excel / CSV / JSON]:::proceso
-    R6[Enviar a destinatarios por email]:::proceso
-    R7[Actualizar próxima ejecución<br/>según frecuencia]:::proceso
+    direction TB
+    R1([Fecha/hora ejecucion]):::inicio
+    R2{"Activo?"}:::decision
+    R3[Ejecutar consulta]:::proceso
+    R4{"Exitosa?"}:::decision
+    R5[Generar archivo<br/>PDF / Excel / CSV]:::proceso
+    R6[Enviar por email]:::proceso
+    R7[Proxima ejecucion]:::proceso
     R8([Fin]):::fin
-    R9[Registrar error en historial]:::proceso
-
+    R9[Registrar error]:::proceso
     R1 --> R2
-    R2 -->|Sí| R3 --> R4
+    R2 -->|Si| R3 --> R4
     R2 -->|No| R8
-    R4 -->|Sí| R5 --> R6 --> R7 --> R8
+    R4 -->|Si| R5 --> R6 --> R7 --> R8
     R4 -->|No| R9 --> R8
   end
 
+  A4 ===>|ingresa| R1
+  R9 ===>|realiza ventas| C2
+  C13 ===>|genera| H1
+  H11 ===>|pasa a| P2
+
+  CAT["📦 Catalogo<br/>productos"]:::proceso -.-> C2
+  CLI["🏢 Clientes"]:::proceso -.-> C2
+
+  P7 ===>|datos para| R3
+
   subgraph LEY["📖 LEYENDA"]
-    L1[Inicio / Fin]:::inicio
-    L2[Proceso / Acción]:::proceso
-    L3[Decisión / Sí o No]:::decision
-    L4[Anulación desde cualquier estado]:::fin
+    direction LR
+    L1([Inicio / Fin]):::inicio
+    L2[Proceso]:::proceso
+    L3{Decision}:::decision
+    L4([Anulacion]):::fin
   end
 </div>
 </body>
