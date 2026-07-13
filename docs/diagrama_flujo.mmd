@@ -1,125 +1,170 @@
+---
+config:
+  layout: elk
+---
 flowchart TB
-  %% Estilos
-  classDef cat fill:#e8f5e9,stroke:#2e7d32,stroke-width:2px
-  classDef ven fill:#e3f2fd,stroke:#1565c0,stroke-width:2px
-  classDef fin fill:#fff3e0,stroke:#e65100,stroke-width:2px
-  classDef seg fill:#f5f5f5,stroke:#424242,stroke-width:2px
-  classDef trans fill:#f3e5f5,stroke:#6a1b9a,stroke-width:2px
-  classDef estado fill:#fff9c4,stroke:#f9a825,stroke-width:1px
+  %% ── ESTILOS ──
+  classDef inicio fill:#dbeafe,stroke:#2563eb,stroke-width:3px
+  classDef proceso fill:#f0fdf4,stroke:#16a34a,stroke-width:2px
+  classDef decision fill:#fef9c3,stroke:#ca8a04,stroke-width:2px
+  classDef sub fill:#f5f3ff,stroke:#7c3aed,stroke-width:2px
+  classDef fin fill:#fef2f2,stroke:#dc2626,stroke-width:3px
+  classDef doc fill:#fff7ed,stroke:#ea580c,stroke-width:2px
 
-  %% ════════════════════════════════════════
-  %% SEGURIDAD (gris)
-  %% ════════════════════════════════════════
-  subgraph Seguridad["🔒 Seguridad (RBAC)"]
-    R[roles] --> RP[roles_permisos]
-    P[permisos] --> RP
-    RP --> U[usuarios]
-    U -->|tiene 1 rol| R
+  %% ════════════════════════════════════════════════
+  %% FLUJO PRINCIPAL: AUTENTICACIÓN
+  %% ════════════════════════════════════════════════
+  subgraph AUTH[🔐 1. INICIO DE SESIÓN]
+    A1([Inicio]):::inicio
+    A2[Ingresa usuario y contraseña]:::proceso
+    A3{¿Credenciales<br/>válidas?}:::decision
+    A4[Redirige al dashboard<br/>según su rol]:::proceso
+    A5{¿Intentos<br/>> 5?}:::decision
+    A6[Bloquear cuenta<br/>por 30 min]:::proceso
+    A7([Fin - Acceso denegado]):::fin
+
+    A1 --> A2 --> A3
+    A3 -->|Sí| A4
+    A3 -->|No| A5
+    A5 -->|Sí| A6 --> A7
+    A5 -->|No| A2
   end
 
-  %% ════════════════════════════════════════
-  %% CATÁLOGO (verde)
-  %% ════════════════════════════════════════
-  subgraph Catalogo["📦 Catálogo"]
-    C[catálogo] --> SC[subcategorías]
-    SC --> PROD[productos]
-    PROD --> PI[productos_imagenes]
-    PROD --> PH[productos_historicos]
-    PROV[proveedores] --> PP[productos_proveedores]
-    PROD --> PP
+  %% ════════════════════════════════════════════════
+  %% FLUJO: GESTIÓN DE VENDEDORES
+  %% ════════════════════════════════════════════════
+  subgraph REG[👤 2. REGISTRO DE VENDEDOR]
+    R1[Ingresa datos personales<br/>nombre, identificación, teléfono]:::proceso
+    R2[Ingresa datos laborales<br/>fecha contratación, tipo contrato,<br/>salario base, % comisión global]:::proceso
+    R3[Ingresa datos bancarios<br/>banco, tipo cuenta, número]:::proceso
+    R4{¿Tiene supervisor?}:::decision
+    R5[Asignar supervisor]:::proceso
+    R6{¿Tiene zona?}:::decision
+    R7[Asignar zona de trabajo]:::proceso
+    R8[Contactos de emergencia<br/>mínimo 1 requerido]:::proceso
+    R9([Vendedor activo]):::fin
 
-    CLI[clientes] --> CD[clientes_direcciones]
+    R1 --> R2 --> R3 --> R4
+    R4 -->|Sí| R5 --> R6
+    R4 -->|No| R6
+    R6 -->|Sí| R7 --> R8
+    R6 -->|No| R8
+    R8 --> R9
   end
 
-  %% ════════════════════════════════════════
-  %% VENDEDORES (verde)
-  %% ════════════════════════════════════════
-  subgraph Vendedores["👤 Vendedores"]
-    V[VENDEDORES] --> VC[vendedores_contactos]
-    Z[zonas] --> VZ[vendedores_zonas]
-    V --> VZ
-    SUP[supervisores] --> VS[vendedores_supervisores]
-    V --> VS
+  %% ════════════════════════════════════════════════
+  %% FLUJO: COTIZACIÓN → VENTA
+  %% ════════════════════════════════════════════════
+  subgraph CV[📋 3. PROCESO DE VENTA]
+    C1[Cliente solicita<br/>cotización]:::proceso
+    C2[Vendedor crea cotización<br/>con productos y precios]:::proceso
+    C3{Cliente<br/>aprueba?}:::decision
+    C4[Convertir cotización<br/>en venta]:::proceso
+    C5[Venta en estado<br/>BORRADOR]:::proceso
+    C6{¿Datos correctos?}:::decision
+    C7[Venta CONFIRMADA]:::proceso
+    C8[Registrar forma de pago<br/>efectivo / tarjeta / transferencia<br/>pueden ser múltiples]:::proceso
+    C9{¿Pago<br/>recibido?}:::decision
+    C10[Venta PAGADA]:::proceso
+    C11{¿Requiere<br/>envío?}:::decision
+    C12[Venta ENVIADA]:::proceso
+    C13[Generar factura<br/>Venta FACTURADA]:::proceso
+    C14([Venta completada]):::fin
+    C15[Venta ANULADA]:::fin
+
+    C1 --> C2 --> C3
+    C3 -->|Sí| C4 --> C5
+    C3 -->|No| C15
+    C5 --> C6
+    C6 -->|Sí| C7
+    C6 -->|No| C5
+    C7 --> C8 --> C9
+    C9 -->|Sí| C10
+    C9 -->|No| C8
+    C10 --> C11
+    C11 -->|Sí| C12 --> C13
+    C11 -->|No| C13
+    C13 --> C14
+    C7 -.->|Anular| C15
+    C10 -.->|Anular| C15
+    C12 -.->|Anular| C15
+    C13 -.->|Anular| C15
   end
 
-  %% ════════════════════════════════════════
-  %% VENTAS (azul)
-  %% ════════════════════════════════════════
-  subgraph Ventas["💰 Ventas"]
-    COT[cotizaciones] --> COTD[cotizaciones_detalle]
-    COT -.->|se convierte| VTA[VENTAS]
+  %% ════════════════════════════════════════════════
+  %% FLUJO: CÁLCULO DE COMISIONES
+  %% ════════════════════════════════════════════════
+  subgraph COM[🏆 4. CÁLCULO DE COMISIONES]
+    H1([Venta facturada]):::inicio
+    H2[Obtener detalle de venta<br/>productos + cantidades + precios]:::proceso
+    H3[Por cada producto:<br/>% comisión normal o especial<br/>según fecha vigencia]:::decision
+    H4[Calcular comisión:<br/>base_cálculo × % / 100]:::proceso
+    H5[Agrupar comisiones<br/>por vendedor y período<br/>semanal / quincenal / mensual]:::proceso
+    H6{¿Tiene meta<br/>el vendedor<br/>este período?}:::decision
+    H7[Comparar ventas acumuladas<br/>contra meta_ventas]:::proceso
+    H8{¿Cumplió<br/>la meta?}:::decision
+    H9[Agregar bono por<br/>cumplimiento o % extra]:::proceso
+    H10[Estado comisión: PENDIENTE<br/>lista para pago]:::proceso
+    H11([Fin cálculo]):::fin
 
-    VE[ventas_estados] --> VTA
-    VTA --> DV[detalle_ventas]
-    VTA --> VFP[ventas_formas_pago]
-    FP[formas_pago] --> VFP
+    H1 --> H2 --> H3 --> H4 --> H5 --> H6
+    H6 -->|Sí| H7 --> H8
+    H8 -->|Sí| H9 --> H10
+    H8 -->|No| H10
+    H6 -->|No| H10 --> H11
   end
 
-  %% ════════════════════════════════════════
-  %% FLUJO DE ESTADOS DE VENTA
-  %% ════════════════════════════════════════
-  subgraph EstadosVenta["🔄 Flujo Estados de Venta"]
-    B[🧾 Borrador] --> C2[✅ Confirmada]
-    C2 --> P2[💳 Pagada]
-    P2 --> E[📤 Enviada]
-    E --> F[📄 Facturada]
-    B -.->|o| ANU[❌ Anulada]
-    C2 -.-> ANU
-    P2 -.-> ANU
-    E -.-> ANU
-    F -.-> ANU
+  %% ════════════════════════════════════════════════
+  %% FLUJO: PAGO A VENDEDORES
+  %% ════════════════════════════════════════════════
+  subgraph PAG[💵 5. PAGO DE COMISIONES]
+    P1([Inicio de período de pago]):::inicio
+    P2[Todas comisiones PENDIENTES<br/>del período]:::proceso
+    P3[Generar pago agrupado<br/>por vendedor]:::proceso
+    P4[Registrar método de pago<br/>transferencia / efectivo / cheque / depósito]:::proceso
+    P5{¿Monto coincide<br/>con banco?}:::decision
+    P6[Conciliación: CONCILIADO]:::proceso
+    P7[Cambiar estado comisiones<br/>a PAGADAS]:::proceso
+    P8([Pago completado]):::fin
+    P9[Conciliación: DIFERENCIA<br/>marcar diferencia]:::proceso
+    P10[Pago RECHAZADO<br/>revisar y corregir]:::proceso
+    P12[Pago ANULADO]:::fin
+
+    P1 --> P2 --> P3 --> P4 --> P5
+    P5 -->|Sí| P6 --> P7 --> P8
+    P5 -->|No| P9 --> P10
+    P10 -->|Corregir| P4
+    P10 -.->|Desistir| P12
   end
 
-  %% ════════════════════════════════════════
-  %% COMISIONES (naranja)
-  %% ════════════════════════════════════════
-  subgraph Comisiones["🏆 Comisiones"]
-    DV -->|genera| COM[comisiones]
-    COM --> CA[comisiones_ajustes]
-    CM[comisiones_metas] --> CMD[comisiones_metas_detalle]
-    V --> CM
-    BON[bonos] --> V
+  %% ════════════════════════════════════════════════
+  %% FLUJO: GENERACIÓN DE REPORTES
+  %% ════════════════════════════════════════════════
+  subgraph REP[📊 6. REPORTES PROGRAMADOS]
+    R1([Llega fecha/hora]):::inicio
+    R2{¿Reporte activo?}:::decision
+    R3[Ejecutar consulta<br/>según tipo reporte]:::proceso
+    R4{¿Ejecución<br/>exitosa?}:::decision
+    R5[Generar archivo<br/>PDF / Excel / CSV / JSON]:::proceso
+    R6[Enviar a destinatarios<br/>lista de emails]:::proceso
+    R7[Actualizar próxima ejecución<br/>según frecuencia]:::proceso
+    R8([Fin]):::fin
+    R9[Registrar error<br/>en historial]:::proceso
+
+    R1 --> R2
+    R2 -->|Sí| R3 --> R4
+    R2 -->|No| R8
+    R4 -->|Sí| R5 --> R6 --> R7 --> R8
+    R4 -->|No| R9 --> R8
   end
 
-  %% ════════════════════════════════════════
-  %% PAGOS (naranja)
-  %% ════════════════════════════════════════
-  subgraph Pagos["💵 Pagos a Vendedores"]
-    COM -->|agrupa| PAG[pagos]
-    PM[pagos_metodos] --> PAG
-    PAG --> PC2[pagos_comisiones]
-    PC2 --> COM
-    PAG --> PCON[pagos_conciliacion]
-  end
-
-  %% ════════════════════════════════════════
-  %% TRANSVERSALES (púrpura)
-  %% ════════════════════════════════════════
-  subgraph Transversales["⚙️ Transversales"]
-    N[notificaciones]
-    CONF[configuracion_modulos]
-    RP2[reportes_programados] --> RE[reportes_ejecutados]
-  end
-
-  %% ════════════════════════════════════════
-  %% RELACIONES ENTRE MÓDULOS
-  %% ════════════════════════════════════════
-  U -->|crea| V
-  U -->|registra| VTA
-  VTA -->|genera comisión para| V
-  V -->|vende a| CLI
-  PROD -->|se vende en| DV
-  VTA -->|pertenece a| CLI
-
-  %% ════════════════════════════════════════
+  %% ════════════════════════════════════════════════
   %% LEYENDA
-  %% ════════════════════════════════════════
-  subgraph Leyenda["📖 Leyenda"]
-    L1[Catálogo]:::cat
-    L2[Ventas]:::ven
-    L3[Financiero]:::fin
-    L4[Seguridad]:::seg
-    L5[Transversal]:::trans
-    L6[Estado]:::estado
-    L7[➡ genera / 1 a N]:::default
+  %% ════════════════════════════════════════════════
+  subgraph LEY[📖 LEYENDA]
+    L1[Inicio / Fin]:::inicio
+    L2[Proceso / Acción]:::proceso
+    L3[Decisión<br/>Sí / No]:::decision
+    L4[Documento / Reporte]:::doc
+    L5[Anulación<br/>desde cualquier estado]:::fin
   end
