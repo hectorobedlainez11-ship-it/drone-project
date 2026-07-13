@@ -6,7 +6,7 @@ classDef f fill:#fef2f2,stroke:#dc2626,stroke-width:3
 subgraph A[1.LOGIN]
 direction TB
 a1([Inicio]):::i
-a2[Usuario+contrasena]:::p
+a2[Usuario+pass]:::p
 a3{Validas?}:::d
 a4[Dashboard]:::p
 a5{Intentos>5?}:::d
@@ -20,14 +20,14 @@ a5-->|No|a2
 end
 subgraph B[2.REG VENDEDOR]
 direction TB
-b1[Datos:nom,ID,tel]:::p
-b2[Datos:contrat,sal,comis]:::p
-b3[Datos:bco,cta]:::p
+b1[Datos pers]:::p
+b2[Datos lab]:::p
+b3[Datos bco]:::p
 b4{Tiene sup?}:::d
 b5[Asignar sup]:::p
 b6{Tiene zona?}:::d
 b7[Asignar zona]:::p
-b8[Contactos emerg]:::p
+b8[Contactos]:::p
 b9([ACTIVO]):::f
 b1-->b2-->b3-->b4
 b4-->|Si|b5-->b6
@@ -39,19 +39,19 @@ end
 subgraph C[3.VENTA]
 direction TB
 c1[Cliente cotiza]:::p
-c2[Crear cotizacion]:::p
+c2[Crear cotiz]:::p
 c3{Aprueba?}:::d
-c4[Convertir venta]:::p
+c4[Convertir vta]:::p
 c5[BORRADOR]:::p
 c6{Datos ok?}:::d
 c7[CONFIRMADA]:::p
-c8[Registrar pago]:::p
-c9{Pago recib?}:::d
+c8[Reg pago]:::p
+c9{Pago ok?}:::d
 c10[PAGADA]:::p
-c11{Requiere env?}:::d
+c11{Envio?}:::d
 c12[ENVIADA]:::p
 c13[FACTURADA]:::p
-c14([Venta OK]):::f
+c14([OK]):::f
 c15([ANULADA]):::f
 c1-->c2-->c3
 c3-->|Si|c4-->c5
@@ -73,17 +73,17 @@ c13-.->|anular|c15
 end
 subgraph D[4.COMISIONES]
 direction TB
-d1([Vta facturada]):::i
-d2[Detalle vta]:::p
-d3[%comision x prod]:::p
-d4[Calcular base*pct/100]:::p
-d5[Agrupar x vend]:::p
+d1([Vta fact]):::i
+d2[Detalle]:::p
+d3[%comis]:::p
+d4[Calc base*pct]:::p
+d5[Agrupar]:::p
 d6{Tiene meta?}:::d
-d7[Comparar meta]:::p
+d7[Comparar]:::p
 d8{Cumplio?}:::d
 d9[Bono]:::p
 d10[PENDIENTE]:::p
-d11([Fin calc]):::f
+d11([Fin]):::f
 d1-->d2-->d3-->d4-->d5-->d6
 d6-->|Si|d7-->d8
 d8-->|Si|d9-->d10
@@ -93,13 +93,13 @@ end
 subgraph E[5.PAGOS]
 direction TB
 e1([Ini periodo]):::i
-e2[Comis PENDIENTES]:::p
-e3[Gen pago x vend]:::p
-e4[Registrar metodo]:::p
-e5{Coincide bco?}:::d
+e2[Comis pend]:::p
+e3[Gen pago]:::p
+e4[Reg metodo]:::p
+e5{Coincide?}:::d
 e6[CONCILIADO]:::p
 e7[PAGADAS]:::p
-e8([Pago OK]):::f
+e8([OK]):::f
 e9[DIFERENCIA]:::p
 e10[RECHAZADO]:::p
 e12([ANULADO]):::f
@@ -111,15 +111,15 @@ e10-.->|desistir|e12
 end
 subgraph F[6.REPORTES]
 direction TB
-f1([Fecha/hora]):::i
+f1([Fecha]):::i
 f2{Activo?}:::d
-f3[Ejec consulta]:::p
-f4{Exitosa?}:::d
-f5[Gen PDF/Excel]:::p
-f6[Enviar email]:::p
+f3[Ejec]:::p
+f4{Exito?}:::d
+f5[Gen arch]:::p
+f6[Email]:::p
 f7[Prox ejec]:::p
 f8([Fin]):::f
-f9[Reg error]:::p
+f9[Error]:::p
 f1-->f2
 f2-->|Si|f3-->f4
 f2-->|No|f8
@@ -129,13 +129,14 @@ end
 a4==>|ingresa|b1
 b9==>|vende|c2
 c14==>|genera|d1
-d11==>|pasa a|e2
+d11==>|pasa|e2
 e8==>|datos|f1
-g1[Catalogo]:::p-.->c2
-g2[Clientes]:::p-.->c2
+x1[Catalogo]:::p-.->c2
+x2[Clientes]:::p-.->c2
 subgraph G[LEYENDA]
-h1([Inicio/Fin]):::i
-h2[Proceso]:::p
-h3{Decision}:::d
-h4([Anulacion]):::f
+direction LR
+g1([I/F]):::i
+g2[Proc]:::p
+g3{Dec}:::d
+g4([Anul]):::f
 end
