@@ -1,9 +1,10 @@
-flowchart TB
+flowchart LR
 classDef i fill:#dbeafe,stroke:#2563eb,stroke-width:3
 classDef p fill:#f0fdf4,stroke:#16a34a
 classDef d fill:#fef9c3,stroke:#ca8a04
 classDef f fill:#fef2f2,stroke:#dc2626,stroke-width:3
 subgraph A[1.LOGIN]
+direction TB
 a1([Inicio]):::i
 a2[Usuario+contrasena]:::p
 a3{Validas?}:::d
@@ -18,6 +19,7 @@ a5-->|Si|a6-->a7
 a5-->|No|a2
 end
 subgraph B[2.REG VENDEDOR]
+direction TB
 b1[Datos:nom,ID,tel]:::p
 b2[Datos:contrat,sal,comis]:::p
 b3[Datos:bco,cta]:::p
@@ -35,6 +37,7 @@ b6-->|No|b8
 b8-->b9
 end
 subgraph C[3.VENTA]
+direction TB
 c1[Cliente cotiza]:::p
 c2[Crear cotizacion]:::p
 c3{Aprueba?}:::d
@@ -69,6 +72,7 @@ c12-.->|anular|c15
 c13-.->|anular|c15
 end
 subgraph D[4.COMISIONES]
+direction TB
 d1([Vta facturada]):::i
 d2[Detalle vta]:::p
 d3[%comision x prod]:::p
@@ -87,6 +91,7 @@ d8-->|No|d10
 d6-->|No|d10-->d11
 end
 subgraph E[5.PAGOS]
+direction TB
 e1([Ini periodo]):::i
 e2[Comis PENDIENTES]:::p
 e3[Gen pago x vend]:::p
@@ -105,6 +110,7 @@ e10-->|corregir|e4
 e10-.->|desistir|e12
 end
 subgraph F[6.REPORTES]
+direction TB
 f1([Fecha/hora]):::i
 f2{Activo?}:::d
 f3[Ejec consulta]:::p
