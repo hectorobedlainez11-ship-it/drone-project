@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html>
+<head><meta charset="utf-8"><title>Diagrama Sistema Ventas</title>
+<script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
+<style>body{background:#1e1e1e;display:flex;justify-content:center;padding:20px}
+.mermaid{background:#fff;padding:30px;border-radius:12px;max-width:1400px}</style>
+</head>
+<body>
+<div class="mermaid">
+%%{init:{'theme':'base','themeVariables':{'primaryColor':'#fff','lineColor':'#333'}}}%%
+flowchart TB
+  classDef cat fill:#e8f5e9,stroke:#2e7d32,stroke-width:2px
+  classDef ven fill:#e3f2fd,stroke:#1565c0,stroke-width:2px
+  classDef fin fill:#fff3e0,stroke:#e65100,stroke-width:2px
+  classDef seg fill:#f5f5f5,stroke:#424242,stroke-width:2px
+  classDef trans fill:#f3e5f5,stroke:#6a1b9a,stroke-width:2px
+  classDef estado fill:#fff9c4,stroke:#f9a825,stroke-width:1px
+
+  subgraph Seguridad["🔒 Seguridad"]
+    R[roles] --> RP[roles_permisos]
+    P[permisos] --> RP
+    RP --> U[usuarios]
+    U -->|tiene 1| R
+  end
+
+  subgraph Vendedores["👤 Vendedores"]
+    V[vendedores] --> VC[contactos]
+    Z[zonas] --> VZ[vend_zonas]
+    V --> VZ
+    SUP[supervisores] --> VS[vend_supervisores]
+    V --> VS
+  end
+
+  subgraph Catalogo["📦 Catálogo"]
+    C[categorias] --> SC[subcategorias]
+    SC --> PROD[productos]
+    PROD --> PI[imagenes]
+    PROD --> PH[historicos]
+    PROV[proveedores] --> PP[prod_proveedores]
+    PROD --> PP
+    CLI[clientes] --> CD[direcciones]
+  end
+
+  subgraph Ventas["💰 Ventas"]
+    COT[cotizaciones] --> COTD[cot_detalle]
+    COT -.->|se convierte| VTA[ventas]
+    DV[detalle_ventas] --> VTA
+    VTA --> VFP[ventas_formas_pago]
+    FP[formas_pago] --> VFP
+  end
+
+  subgraph Estados["🔄 Estados Venta"]
+    direction LR
+    B[🧾 Borrador] --> C2[✅ Confirmada]
+    C2 --> P2[💳 Pagada]
+    P2 --> E[📤 Enviada]
+    E --> F[📄 Facturada]
+    B -.-> ANU[❌ Anulada]
+    C2 -.-> ANU
+    P2 -.-> ANU
+    E -.-> ANU
+    F -.-> ANU
+  end
+
+  subgraph Comisiones["🏆 Comisiones"]
+    DV --> COM[comisiones]
+    COM --> CA[ajustes]
+    CM[metas] --> CMD[meta_detalle]
+    V --> CM
+    BON[bonos] --> V
+  end
+
+  subgraph Pagos["💵 Pagos"]
+    COM --> PAG[pagos]
+    PM[pagos_metodos] --> PAG
+    PAG --> PC2[pagos_comisiones]
+    PC2 --> COM
+    PAG --> PCON[conciliacion]
+  end
+
+  subgraph Transversales["⚙️ Transversales"]
+    N[notificaciones]
+    CONF[configuracion]
+    REP[reportes_programados] --> RE[reportes_ejecutados]
+  end
+
+  VTA -->|genera comision| COM
+  VTA --> V
+  V -->|vende a| CLI
+  PROD --> DV
+  U --> V
+  U --> VTA
+
+  subgraph Leyenda["📖 Leyenda"]
+    L1[Catálogo]:::cat
+    L2[Ventas]:::ven
+    L3[Financiero]:::fin
+    L4[Seguridad]:::seg
+    L5[Transversal]:::trans
+    L6[Estado]:::estado
+  end
+</div>
+</body>
+</html>

@@ -1,0 +1,125 @@
+flowchart TB
+  %% Estilos
+  classDef cat fill:#e8f5e9,stroke:#2e7d32,stroke-width:2px
+  classDef ven fill:#e3f2fd,stroke:#1565c0,stroke-width:2px
+  classDef fin fill:#fff3e0,stroke:#e65100,stroke-width:2px
+  classDef seg fill:#f5f5f5,stroke:#424242,stroke-width:2px
+  classDef trans fill:#f3e5f5,stroke:#6a1b9a,stroke-width:2px
+  classDef estado fill:#fff9c4,stroke:#f9a825,stroke-width:1px
+
+  %% ════════════════════════════════════════
+  %% SEGURIDAD (gris)
+  %% ════════════════════════════════════════
+  subgraph Seguridad["🔒 Seguridad (RBAC)"]
+    R[roles] --> RP[roles_permisos]
+    P[permisos] --> RP
+    RP --> U[usuarios]
+    U -->|tiene 1 rol| R
+  end
+
+  %% ════════════════════════════════════════
+  %% CATÁLOGO (verde)
+  %% ════════════════════════════════════════
+  subgraph Catalogo["📦 Catálogo"]
+    C[catálogo] --> SC[subcategorías]
+    SC --> PROD[productos]
+    PROD --> PI[productos_imagenes]
+    PROD --> PH[productos_historicos]
+    PROV[proveedores] --> PP[productos_proveedores]
+    PROD --> PP
+
+    CLI[clientes] --> CD[clientes_direcciones]
+  end
+
+  %% ════════════════════════════════════════
+  %% VENDEDORES (verde)
+  %% ════════════════════════════════════════
+  subgraph Vendedores["👤 Vendedores"]
+    V[VENDEDORES] --> VC[vendedores_contactos]
+    Z[zonas] --> VZ[vendedores_zonas]
+    V --> VZ
+    SUP[supervisores] --> VS[vendedores_supervisores]
+    V --> VS
+  end
+
+  %% ════════════════════════════════════════
+  %% VENTAS (azul)
+  %% ════════════════════════════════════════
+  subgraph Ventas["💰 Ventas"]
+    COT[cotizaciones] --> COTD[cotizaciones_detalle]
+    COT -.->|se convierte| VTA[VENTAS]
+
+    VE[ventas_estados] --> VTA
+    VTA --> DV[detalle_ventas]
+    VTA --> VFP[ventas_formas_pago]
+    FP[formas_pago] --> VFP
+  end
+
+  %% ════════════════════════════════════════
+  %% FLUJO DE ESTADOS DE VENTA
+  %% ════════════════════════════════════════
+  subgraph EstadosVenta["🔄 Flujo Estados de Venta"]
+    B[🧾 Borrador] --> C2[✅ Confirmada]
+    C2 --> P2[💳 Pagada]
+    P2 --> E[📤 Enviada]
+    E --> F[📄 Facturada]
+    B -.->|o| ANU[❌ Anulada]
+    C2 -.-> ANU
+    P2 -.-> ANU
+    E -.-> ANU
+    F -.-> ANU
+  end
+
+  %% ════════════════════════════════════════
+  %% COMISIONES (naranja)
+  %% ════════════════════════════════════════
+  subgraph Comisiones["🏆 Comisiones"]
+    DV -->|genera| COM[comisiones]
+    COM --> CA[comisiones_ajustes]
+    CM[comisiones_metas] --> CMD[comisiones_metas_detalle]
+    V --> CM
+    BON[bonos] --> V
+  end
+
+  %% ════════════════════════════════════════
+  %% PAGOS (naranja)
+  %% ════════════════════════════════════════
+  subgraph Pagos["💵 Pagos a Vendedores"]
+    COM -->|agrupa| PAG[pagos]
+    PM[pagos_metodos] --> PAG
+    PAG --> PC2[pagos_comisiones]
+    PC2 --> COM
+    PAG --> PCON[pagos_conciliacion]
+  end
+
+  %% ════════════════════════════════════════
+  %% TRANSVERSALES (púrpura)
+  %% ════════════════════════════════════════
+  subgraph Transversales["⚙️ Transversales"]
+    N[notificaciones]
+    CONF[configuracion_modulos]
+    RP2[reportes_programados] --> RE[reportes_ejecutados]
+  end
+
+  %% ════════════════════════════════════════
+  %% RELACIONES ENTRE MÓDULOS
+  %% ════════════════════════════════════════
+  U -->|crea| V
+  U -->|registra| VTA
+  VTA -->|genera comisión para| V
+  V -->|vende a| CLI
+  PROD -->|se vende en| DV
+  VTA -->|pertenece a| CLI
+
+  %% ════════════════════════════════════════
+  %% LEYENDA
+  %% ════════════════════════════════════════
+  subgraph Leyenda["📖 Leyenda"]
+    L1[Catálogo]:::cat
+    L2[Ventas]:::ven
+    L3[Financiero]:::fin
+    L4[Seguridad]:::seg
+    L5[Transversal]:::trans
+    L6[Estado]:::estado
+    L7[➡ genera / 1 a N]:::default
+  end
