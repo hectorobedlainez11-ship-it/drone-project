@@ -35,7 +35,7 @@ flowchart TB
   %% ════════════════════════════════════════════════
   subgraph REG[👤 2. REGISTRO DE VENDEDOR]
     R1[Ingresa datos personales<br/>nombre, identificación, teléfono]:::proceso
-    R2[Ingresa datos laborales<br/>fecha contratación, tipo contrato,<br/>salario base, % comisión global]:::proceso
+    R2[Ingresa datos laborales<br/>fecha contratación, tipo contrato,<br/>salario base, comisión global]:::proceso
     R3[Ingresa datos bancarios<br/>banco, tipo cuenta, número]:::proceso
     R4{¿Tiene supervisor?}:::decision
     R5[Asignar supervisor]:::proceso
@@ -97,13 +97,13 @@ flowchart TB
   subgraph COM[🏆 4. CÁLCULO DE COMISIONES]
     H1([Venta facturada]):::inicio
     H2[Obtener detalle de venta<br/>productos + cantidades + precios]:::proceso
-    H3[Por cada producto:<br/>% comisión normal o especial<br/>según fecha vigencia]:::decision
-    H4[Calcular comisión:<br/>base_cálculo × % / 100]:::proceso
+    H3[Por cada producto:<br/>comisión normal o especial<br/>según fecha vigencia]:::proceso
+    H4[Calcular comisión:<br/>base_calculo * pct / 100]:::proceso
     H5[Agrupar comisiones<br/>por vendedor y período<br/>semanal / quincenal / mensual]:::proceso
     H6{¿Tiene meta<br/>el vendedor<br/>este período?}:::decision
     H7[Comparar ventas acumuladas<br/>contra meta_ventas]:::proceso
     H8{¿Cumplió<br/>la meta?}:::decision
-    H9[Agregar bono por<br/>cumplimiento o % extra]:::proceso
+    H9[Agregar bono por cumplimiento<br/>o porcentaje extra]:::proceso
     H10[Estado comisión: PENDIENTE<br/>lista para pago]:::proceso
     H11([Fin cálculo]):::fin
 
