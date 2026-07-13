@@ -1,0 +1,75 @@
+Crea un diagrama de flujo VERTICAL (arriba a abajo) con 6 subprocesos apilados uno debajo del otro y una leyenda al final. Usa nodos con bordes redondeados. Sigue estos colores:
+- Inicio/Fin: azul claro borde grueso
+- Proceso: verde claro borde normal
+- Decisión: amarillo claro borde normal
+- Anulación: rojo claro borde grueso
+
+El orden de arriba a abajo es:
+1. LOGIN
+2. REGISTRO VENDEDOR
+3. PROCESO VENTA
+4. COMISIONES
+5. PAGOS
+6. REPORTES PROGRAMADOS
+Luego la LEYENDA al final.
+
+Conecta el Dashboard de LOGIN con el inicio de REGISTRO VENDEDOR.
+Conecta Vendedor ACTIVO con Crear cotización en PROCESO VENTA.
+Conecta Venta OK con Venta facturada en COMISIONES.
+Conecta Fin cálculo con Inicio periodo pago en PAGOS.
+Conecta Pago OK con Fecha/hora ejecución en REPORTES.
+Incluye nodos externos Catálogo y Clientes que alimentan Crear cotización en PROCESO VENTA.
+
+SUBPROCESO 1 - LOGIN:
+[Inicio] -> [Usuario + contraseña] -> {¿Válidas?}
+Sí -> [Dashboard según rol]
+No -> {¿Intentos >5?}
+Sí -> [Bloquear 30 min] -> [Denegado]
+No -> volver a [Usuario + contraseña]
+
+SUBPROCESO 2 - REGISTRO VENDEDOR:
+[Datos personales: nombre, ID, teléfono] -> [Datos laborales: contrato, salario, comisión] -> [Datos bancarios: banco, cuenta] -> {¿Tiene supervisor?}
+Sí -> [Asignar supervisor] -> {¿Tiene zona?}
+No -> directo a {¿Tiene zona?}
+Sí -> [Asignar zona] -> [Contactos emergencia]
+No -> directo a [Contactos emergencia]
+-> [Vendedor ACTIVO]
+
+SUBPROCESO 3 - PROCESO VENTA:
+Recibe entrada de Catálogo (nodo externo) y Clientes (nodo externo) hacia Crear cotización
+[Cliente solicita cotización] -> [Crear cotización] -> {¿Aprueba?}
+Sí -> [Convertir en venta] -> [BORRADOR] -> {¿Datos ok?}
+Sí -> [CONFIRMADA] -> [Registrar forma pago] -> {¿Pago recibido?}
+Sí -> [PAGADA] -> {¿Requiere envío?}
+Sí -> [ENVIADA] -> [FACTURADA] -> [Venta OK]
+No desde {¿Aprueba?} -> [ANULADA]
+No desde {¿Datos ok?} -> volver a [BORRADOR]
+No desde {¿Pago recibido?} -> volver a [Registrar forma pago]
+No desde {¿Requiere envío?} -> directo a [FACTURADA]
+Líneas punteadas desde CONFIRMADA, PAGADA, ENVIADA, FACTURADA hacia ANULADA con etiqueta "anular"
+
+SUBPROCESO 4 - COMISIONES:
+[Venta facturada] -> [Detalle venta: productos + cantidades] -> [% comisión por producto] -> [Calcular: base * pct / 100] -> [Agrupar por vendedor y periodo] -> {¿Tiene meta?}
+Sí -> [Comparar vs meta_ventas] -> {¿Cumplió?}
+Sí -> [Bono por cumplimiento] -> [Estado: PENDIENTE]
+No -> directo a [Estado: PENDIENTE]
+No desde {¿Tiene meta?} -> directo a [Estado: PENDIENTE]
+-> [Fin cálculo]
+
+SUBPROCESO 5 - PAGOS:
+[Inicio periodo pago] -> [Comisiones PENDIENTES del periodo] -> [Generar pago por vendedor] -> [Registrar método pago] -> {¿Coincide con banco?}
+Sí -> [CONCILIADO] -> [Comisiones a PAGADAS] -> [Pago OK]
+No -> [DIFERENCIA: marcar diferencia] -> [RECHAZADO: revisar]
+Desde RECHAZADO flecha normal "corregir" a [Registrar método pago]
+Desde RECHAZADO flecha punteada "desistir" a [ANULADO]
+
+SUBPROCESO 6 - REPORTES PROGRAMADOS:
+[Fecha/hora ejecución] -> {¿Activo?}
+Sí -> [Ejecutar consulta] -> {¿Exitosa?}
+Sí -> [Generar archivo PDF/Excel/CSV] -> [Enviar por email] -> [Próxima ejecución] -> [Fin]
+No desde {¿Activo?} -> directo a [Fin]
+No desde {¿Exitosa?} -> [Registrar error] -> [Fin]
+
+LEYENDA (al final, horizontal):
+[Inicio/Fin]  [Proceso]  [Decisión]  [Anulación]
+con los mismos colores y estilos del diagrama.
